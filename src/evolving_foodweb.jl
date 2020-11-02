@@ -558,7 +558,7 @@ end
 function evolving_foodweb(; time_steps = 1, print_steps = 1)
 
     run = Run(; time_steps = time_steps, print_steps = print_steps, dt = 0.1)
-    comm = Comm(; grid = (X = 5, Y = 2), microsites = 20000, m = 0.1, species = 30, rep_type = :ASEXUAL, dt = run.dt, scale_uptake = 1.)
+    comm = Comm(; grid = (X = 5, Y = 2), env_step = 0.001, microsites = 20000, m = 0.1, species = 30, rep_type = :ASEXUAL, dt = run.dt, scale_uptake = 1.)
     evol = Evol()
     sites = Sites(comm, evol)
 
@@ -566,7 +566,7 @@ function evolving_foodweb(; time_steps = 1, print_steps = 1)
         if (t * run.dt) % run.print_steps == 0
             println("time = ", t * run.dt)
         end
-        # change_environment(sites)
+        change_environment(sites)
         uptake(sites)
         update_prey(sites)
         contribution_adults(sites)

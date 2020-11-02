@@ -37,12 +37,13 @@ struct Ecol_parameters
     # mortality
     d::Float64
     d_power::Float64
+    d_tl::Vector{Float64}
     # species
     species::Int
     trophic_levels::Int
     # bodymass classes
     bodymass_tl::Array{Float64, 1}
-    tl_species::Vector{UInt}
+    tl_species::Vector{Int}
     # feeding
     uptake_pars::Vector{Float64}
     i_power::Float64
@@ -75,6 +76,7 @@ struct Ecol_parameters
         species = patches*trophic_levels
         tl_species = [(s - 1) % trophic_levels + 1 for s = 1:species]
         bodymass_tl = [10^(l - 1) for l = 1:trophic_levels]
+        d_tl = d .* bodymass_tl.^d_power
         uptake_tl = zeros(trophic_levels, 2)
         uptake_tl[:, 1] .= @. uptake_pars[1] * bodymass_tl^i_power
         for tl in 1:trophic_levels
@@ -92,7 +94,7 @@ struct Ecol_parameters
                 conversion_tl[tl] = assimilation_eff*(1-scale_assim*bodymass_tl[tl]^(-i_power)) * bodymass_tl[tl-1]/bodymass_tl[tl]
             end
         end
-        return new(grid, torus, env_range, env_step, dt_env, patches, m, rho, m_tl, m_power, in_rate, out_rate, d, d_power, species, trophic_levels, bodymass_tl, tl_species, uptake_pars, i_power, uptake_tl, resource_conversion, resource_assimilation, assimilation_eff, conversion_tl, scale_uptake, scale_assim)
+        return new(grid, torus, env_range, env_step, dt_env, patches, m, rho, m_tl, m_power, in_rate, out_rate, d, d_power, d_tl, species, trophic_levels, bodymass_tl, tl_species, uptake_pars, i_power, uptake_tl, resource_conversion, resource_assimilation, assimilation_eff, conversion_tl, scale_uptake, scale_assim)
     end
 end
 
@@ -125,7 +127,6 @@ mutable struct Direct_method
     c_b_ind::Array{Float64, 2}
     c_d_ind::Array{Float64, 2}
     c_vec::Vector{Float64}
-    cs_vec::Vector{Float64}
     c_total::Float64
     c_b_res_pos::Vector{Int}
     c_d_res_pos::Vector{Int}
@@ -139,45 +140,43 @@ mutable struct Direct_method
         c_b_ind = [c_b/1.3^ecol.tl_species[s] for s in 1:ecol.species, p in 1:ecol.patches]
         c_d_ind = [c_d/1.3^ecol.tl_species[s] for s in 1:ecol.species, p in 1:ecol.patches]
         c_vec = [c_b_resource; c_d_resource; c_b_ind[:]; c_d_ind[:]]
-        cs_vec = cumsum(c_vec)
-        c_total = cs_vec[end]
+        c_total = sum(c_vec)
         c_b_res_pos = collect(1:ecol.patches)
         c_d_res_pos = ecol.patches .+ collect(1:ecol.patches)
         c_b_ind_pos = [(p-1)*ecol.species .+ s .+ 2*ecol.patches for s in 1:ecol.species, p in 1:ecol.patches]
         c_d_ind_pos = c_b_ind_pos .+ ecol.patches*ecol.species
         c_cart_inds = CartesianIndices(c_b_ind)
-        return new(c_b_resource, c_d_resource, c_b_ind, c_d_ind, c_vec, cs_vec, c_total, c_b_res_pos, c_d_res_pos, c_b_ind_pos, c_d_ind_pos, c_cart_inds)
+        return new(c_b_resource, c_d_resource, c_b_ind, c_d_ind, c_vec, c_total, c_b_res_pos, c_d_res_pos, c_b_ind_pos, c_d_ind_pos, c_cart_inds)
     end
 end
 
 function update_dm_patch(dm::Direct_method, ecol::Ecol_parameters, patch)
     p = patch.patch_ID
-    dm.c_b_resource[p] = patch.resource.gain
-    dm.c_d_resource[p] = patch.resource.loss
-    # dm.c_total -= dm.c_vec[dm.c_b_res_pos[p]]
-    # dm.c_total -= dm.c_vec[dm.c_d_res_pos[p]]
-    dm.c_vec[dm.c_b_res_pos[p]] = dm.c_b_resource[p]
-    dm.c_vec[dm.c_d_res_pos[p]] = dm.c_d_resource[p]
-    # dm.c_total += dm.c_vec[dm.c_b_res_pos[p]]
-    # dm.c_total += dm.c_vec[dm.c_d_res_pos[p]]
+    gain = 0.
+    loss = 0.
+    dm.c_vec[dm.c_b_res_pos[p]] = dm.c_b_resource[p] = patch.resource_gain
+    dm.c_vec[dm.c_d_res_pos[p]] = dm.c_d_resource[p] = patch.resource_loss
     for s in 1:ecol.species
-        if patch.N_s[s] > 0
+        N_s = patch.N_s[s]
+        if N_s > 0
             tl = ecol.tl_species[s]
-            dm.c_b_ind[s,p] = patch.gain_tl[tl]
-            dm.c_d_ind[s,p] = patch.loss_tl[tl] + patch.mort_s[s]
+            # dm.c_b_ind[s,p] = patch.gain_tl[tl]
+            # dm.c_d_ind[s,p] = patch.loss_tl[tl] + patch.mort_max_s[s]
+            gain = patch.gain_tl[tl]
+            loss = patch.loss_tl[tl] + patch.mort_max_s[s]
         else
-            dm.c_b_ind[s,p] = 0
-            dm.c_d_ind[s,p] = 0
+            # dm.c_b_ind[s,p] = 0.
+            # dm.c_d_ind[s,p] = 0.
+            gain = 0.
+            loss = 0.
         end
-        # dm.c_total -= dm.c_vec[dm.c_b_ind_pos[s,p]]
-        # dm.c_total -= dm.c_vec[dm.c_d_ind_pos[s,p]]
-        dm.c_vec[dm.c_b_ind_pos[s,p]] = dm.c_b_ind[s,p].*patch.N_s[s]
-        dm.c_vec[dm.c_d_ind_pos[s,p]] = dm.c_d_ind[s,p].*patch.N_s[s]
-        # dm.c_total += dm.c_vec[dm.c_b_ind_pos[s,p]]
-        # dm.c_total += dm.c_vec[dm.c_d_ind_pos[s,p]]
+        # dm.c_vec[dm.c_b_ind_pos[s,p]] = dm.c_b_ind[s,p]*N_s
+        # dm.c_vec[dm.c_d_ind_pos[s,p]] = dm.c_d_ind[s,p]*N_s
+        dm.c_b_ind[s,p] = gain
+        dm.c_d_ind[s,p] = loss
+        dm.c_vec[dm.c_b_ind_pos[s,p]] = gain*N_s
+        dm.c_vec[dm.c_d_ind_pos[s,p]] = loss*N_s
     end
-    # cumsum!(dm.cs_vec, dm.c_vec)
-    # dm.c_total = dm.cs_vec[end]
     dm.c_total = sum(dm.c_vec)
 end
 
@@ -243,163 +242,186 @@ end
 # end
 
 
-mutable struct Resource
-    in_rate::Float64
-    out_rate::Float64
-    level::Float64
-    gain::Float64
-    loss::Float64
-
-    function Resource(ecol::Ecol_parameters, level = 200.)
-        return new(ecol.in_rate, ecol.out_rate, level, 0., 0.)
-    end
-end
-
-function update_gain(resource::Resource)
-    resource.gain = resource.in_rate
-end
-
-function update_loss(resource::Resource, uptake)
-    resource.loss = resource.out_rate*resource.level + uptake
-end
-
-function increase_level(resource::Resource, p, dm::Direct_method)
-    event = rand() <= (resource.gain/dm.c_b_resource[p])
-    if event
-        resource.level += 1
-    end
-    return event
-end
-
-function decrease_level(resource::Resource, p, dm::Direct_method)
-    event = rand() <= (resource.loss/dm.c_d_resource[p])
-    if event
-        resource.level -= 1
-    end
-    return event
-end
-
-
-mutable struct Individual
-    species_ID::Int
-    trophic_level::UInt
-    bodymass::Float64
-    genotype::Vector{Int8}
-    phenotype::Float64
-    fitness::Float64
-    mortality_rate::Float64
-
-    function Individual(ecol::Ecol_parameters, evol::Evol_parameters, e::Float64, s::Int, gtp::Vector{Int8})
-        species_ID = s
-        trophic_level = ecol.tl_species[s]
-        bodymass = 10.0^(trophic_level - 1)
-        genotype = gtp
-        phenotype = mean(genotype) + randn() * evol.sigma_z
-        fitness = exp(-(phenotype - e)^2 / evol.div_f)
-        mortality_rate = 1 - fitness * (1 -  ecol.d * bodymass^ecol.d_power)
-        return new(species_ID, trophic_level, bodymass, genotype, phenotype, fitness, mortality_rate)
-    end
-
-    function Individual(ecol::Ecol_parameters, evol::Evol_parameters, e = 0.; s = 1)
-        genotype = Int8.(round.(rand(evol.tot_genes) .* 0.5 .* rand([-1.0, 1.0], evol.tot_genes) .+ e))
-        return Individual(ecol, evol, e, s, genotype)
-    end
-
-    function Individual(ecol::Ecol_parameters, evol::Evol_parameters, mother::Individual, e = 0.)
-        species_ID = mother.species_ID
-        genotype = [i for i in mother.genotype]
-        muts = rand(evol.tot_genes) .<= evol.mu
-        muts_sum = sum(muts)
-        if muts_sum > 0
-            genotype[muts] .+= rand([-1,1] , muts_sum)
-        end
-        return Individual(ecol, evol, e, species_ID, genotype)
-    end
-
-    function Individual(ecol::Ecol_parameters, evol::Evol_parameters, mother::Individual, father::Individual, e = 0.)
-        species_ID = mother.species_ID
-        genotype = zeros(Int8, evol.tot_genes)
-        genes = rand(evol.trait_loci) .< 0.5
-        genotype[evol.all_mother[genes]] .= mother.genotype[evol.all_mother[genes]]
-        genotype[evol.all_mother[.!genes]] .= mother.genotype[evol.all_father[.!genes]]
-        genes = rand(evol.trait_loci) .< 0.5
-        genotype[evol.all_father[genes]] .= father.genotype[evol.all_mother[genes]]
-        genotype[evol.all_father[.!genes]] .= father.genotype[evol.all_father[.!genes]]
-        muts = rand(evol.tot_genes) .<= evol.mu
-        muts_sum = sum(muts)
-        if muts_sum > 0
-            genotype[muts] .+= rand([-1,1] , muts_sum)
-        end
-        return Individual(ecol, evol, e, species_ID, genotype)
-    end
-end
-
-function update_fitness(ind::Individual, env::Float64, ecol::Ecol_parameters, evol::Evol_parameters)
-    ind.fitness =
-        exp(-(ind.phenotype-env)^2 / evol.div_f)
-    ind.mortality_rate = 1 - ind.fitness * (1 -  ecol.d * ind.bodymass^ecol.d_power)
-    return ind.mortality_rate
-end
-
-
 mutable struct Patch
     patch_ID::Int
     environment::Float64
-    resource::Resource
-    individuals::Vector{Vector{Individual}}
-    morts::Vector{Vector{Float64}}
+    resource::Float64
+    species_ID::Vector{Vector{Int}}
+    genotype::Vector{Vector{Vector{Int8}}}
+    phenotype::Vector{Vector{Float64}}
+    fitness::Vector{Vector{Float64}}
+    mortality::Vector{Vector{Float64}}
+
     N_s::Vector{Int}
     N_tl::Vector{Int}
     total_N::Int
     total_uptake::Vector{Float64}
+    resource_gain::Float64
+    resource_loss::Float64
     gain_tl::Vector{Float64}
     loss_tl::Vector{Float64}
-    mort_s::Vector{Float64}
+    mort_max_s::Vector{Float64}
 
-    function Patch(ecol::Ecol_parameters, evol::Evol_parameters, init::Init_values, id = 1, e = 0.)
+    function Patch(ecol::Ecol_parameters, init::Init_values, id = 1, e = 0.)
         patch_ID = id
         environment = e
-        resource = Resource(ecol, init.init_resource)
-        individuals = [Individual[] for i in 1:ecol.species]
-        morts = [Float64[] for i in 1:ecol.species]
+        resource = init.init_resource
+        species_ID = [Int[] for i in 1:ecol.species]
+        genotype = [Array{Int8,1}[] for i in 1:ecol.species]
+        phenotype = [Float64[] for i in 1:ecol.species]
+        fitness = [Float64[] for i in 1:ecol.species]
+        mortality = [Float64[] for i in 1:ecol.species]
         N_s = zeros(Int64, ecol.species)
         N_tl = zeros(Int64, ecol.trophic_levels)
-        total_uptake = zeros(ecol.trophic_levels)
-        prob_species = [((s - 1) ÷ (ecol.species / ecol.patches) == (patch_ID - 1) ? 1 : 0) /
-            10^(1.5*(ecol.tl_species[s]-1)) for s in 1:ecol.species]
-        # prob_species = [1,0,0]
-        s_id = wsample(1:ecol.species, prob_species, init.init_N)
-        for i in 1:init.init_N
-            push!(individuals[s_id[i]], Individual(ecol, evol, environment; s = s_id[i]))
-            push!(morts[s_id[i]], individuals[s_id[i]][end].mortality_rate)
-            N_s[s_id[i]] += 1
-            N_tl[ecol.tl_species[s_id[i]]] += 1
-        end
         total_N = sum(N_tl)
+        total_uptake = zeros(ecol.trophic_levels)
+        resource_gain = 0.
+        resource_loss = 0.
         gain_tl = zeros(ecol.species)
         loss_tl = zeros(ecol.species)
-        mort_s = [N_s[s] > 0 ? maximum(morts[s]) : 0 for s in 1:ecol.species]
-        return new(patch_ID, environment, resource, individuals, morts, N_s, N_tl, total_N, total_uptake, gain_tl, loss_tl, mort_s)
+        mort_max_s = [N_s[s] > 0 ? maximum(morts[s]) : 0 for s in 1:ecol.species]
+        return new(patch_ID, environment, resource, species_ID, genotype, phenotype, fitness, mortality, N_s, N_tl, total_N, total_uptake, resource_gain, resource_loss, gain_tl, loss_tl, mort_max_s)
+    end
+end
+
+function increase_resource(patch::Patch, dm::Direct_method)
+    event = rand() <= (patch.resource_gain/dm.c_b_resource[patch.patch_ID])
+    if event
+        patch.resource += 1
+    end
+    return event
+end
+
+function decrease_resource(patch::Patch, dm::Direct_method)
+    event = rand() <= (patch.resource_loss/dm.c_d_resource[patch.patch_ID])
+    if event
+        patch.resource -= 1
+    end
+    return event
+end
+
+function push_individual!(patch::Patch, ecol::Ecol_parameters, evol::Evol_parameters, s::Int, genotype::Vector{Int8})
+    tl = ecol.tl_species[s]
+    phenotype = mean(genotype) + randn() * evol.sigma_z
+    fitness = exp(-(phenotype - patch.environment)^2 / evol.div_f)
+    mortality = 1 - fitness * (1 -  ecol.d_tl[tl])
+
+    push!(patch.species_ID[s], s)
+    push!(patch.genotype[s], genotype)
+    push!(patch.phenotype[s], phenotype)
+    push!(patch.fitness[s], fitness)
+    push!(patch.mortality[s], mortality)
+
+    patch.N_s[s] += 1
+    patch.N_tl[tl] += 1
+    patch.total_N += 1
+    if mortality > patch.mort_max_s[s]
+        patch.mort_max_s[s] = mortality
+    end
+end
+
+function push_individual!(patch::Patch, ecol::Ecol_parameters, evol::Evol_parameters, s::Int)
+    genotype = Int8.(round.(rand(evol.tot_genes) .* 0.5 .* rand([-1.0, 1.0], evol.tot_genes) .+ patch.environment))
+    push_individual!(patch, ecol, evol, s, genotype)
+end
+
+function push_individual!(patch::Patch, parent_patch::Patch, ecol::Ecol_parameters, evol::Evol_parameters, s::Int, mother)
+    # genotype = [i for i in parent_patch.genotype[s][mother]]
+    genotype = copy(parent_patch.genotype[s][mother])
+
+    # muts = rand(evol.tot_genes) .<= evol.mu
+    # muts_sum = sum(muts)
+    # if muts_sum > 0
+    #     genotype[muts] .+= rand([-1,1] , muts_sum)
+    # end
+
+    k = rand(Binomial(evol.tot_genes, evol.mu))
+    if k > 0
+        muts = shuffle(1:evol.tot_genes)[1:k]
+        genotype[muts] .+= rand([-1,1] , k)
+    end
+
+    push_individual!(patch, ecol, evol, s, genotype)
+end
+
+function push_individual!(patch::Patch, parent_patch::Patch, ecol::Ecol_parameters, evol::Evol_parameters, s::Int, mother, father)
+    genotype = zeros(Int8, evol.tot_genes)
+    genes = rand(evol.trait_loci) .< 0.5
+    genotype[evol.all_mother[genes]] .= parent_patch.genotype[s][mother][evol.all_mother[genes]]
+    genotype[evol.all_mother[.!genes]] .= parent_patch.genotype[s][mother][evol.all_father[.!genes]]
+    genes = rand(evol.trait_loci) .< 0.5
+    genotype[evol.all_father[genes]] .= parent_patch.genotype[s][father][evol.all_mother[genes]]
+    genotype[evol.all_father[.!genes]] .= parent_patch.genotype[s][father][evol.all_father[.!genes]]
+
+        # muts = rand(evol.tot_genes) .<= evol.mu
+        # muts_sum = sum(muts)
+        # if muts_sum > 0
+        #     genotype[muts] .+= rand([-1,1] , muts_sum)
+        # end
+
+        k = rand(Binomial(evol.tot_genes, evol.mu))
+        if k > 0
+            muts = shuffle(1:evol.tot_genes)[1:k]
+            genotype[muts] .+= rand([-1,1] , k)
+        end
+
+    push_individual!(patch, ecol, evol, s, genotype)
+end
+
+function populate_patch(patch::Patch, ecol::Ecol_parameters, evol::Evol_parameters, init::Init_values)
+    prob_species = [((s - 1) ÷ (ecol.species / ecol.patches) == (patch.patch_ID - 1) ? 1 : 0) /
+        10^(1.5*(ecol.tl_species[s]-1)) for s in 1:ecol.species]
+    # prob_species = [1,0,0]
+    s_id = wsample(1:ecol.species, prob_species, init.init_N)
+    for i in 1:init.init_N
+        push_individual!(patch, ecol, evol, s_id[i])
+    end
+end
+
+function remove_individual!(patch::Patch, ecol::Ecol_parameters, s::Int, i)
+    tl = ecol.tl_species[s]
+    patch.N_tl[tl] -= 1
+    mort_remove = patch.mortality[s][i]
+    species_ID = pop!(patch.species_ID[s])
+    genotype = pop!(patch.genotype[s])
+    phenotype = pop!(patch.phenotype[s])
+    fitness = pop!(patch.fitness[s])
+    mortality = pop!(patch.mortality[s])
+    if i < patch.N_s[s]
+        patch.species_ID[s][i] = species_ID
+        patch.genotype[s][i] = genotype
+        patch.phenotype[s][i] = phenotype
+        patch.fitness[s][i] = fitness
+        patch.mortality[s][i] = mortality
+    end
+    patch.N_s[s] -= 1
+    patch.total_N -= 1
+    if patch.N_s[s] == 0
+        patch.mort_max_s[s] = 0
+    else
+        if mort_remove == patch.mort_max_s[s]
+            patch.mort_max_s[s] = maximum(patch.mortality[s])
+        end
     end
 end
 
 function update_uptake(patch::Patch, ecol::Ecol_parameters, dm::Direct_method)
     for tl in 1:ecol.trophic_levels
         if tl == 1
-            upt = ecol.uptake_tl[tl, 1]*patch.resource.level^ecol.uptake_pars[3]
+            upt = ecol.uptake_tl[tl, 1]*patch.resource^ecol.uptake_pars[3]
         else
             upt = ecol.uptake_tl[tl, 1]*patch.N_tl[tl-1]^ecol.uptake_pars[3]
         end
         patch.total_uptake[tl] = upt/(1. + upt*ecol.uptake_tl[tl, 2])*patch.N_tl[tl]
     end
+    patch.resource_gain = ecol.in_rate
+    patch.resource_loss = ecol.out_rate*patch.resource + patch.total_uptake[1]
     for tl in 1:ecol.trophic_levels
         patch.gain_tl[tl] = patch.total_uptake[tl]/patch.N_tl[tl] * ecol.conversion_tl[tl]
         if tl < ecol.trophic_levels
             patch.loss_tl[tl] = patch.total_uptake[tl+1]/patch.N_tl[tl]
         end
     end
-    update_gain(patch.resource)
-    update_loss(patch.resource, patch.total_uptake[1])
     update_dm_patch(dm, ecol, patch)
 end
 
@@ -407,11 +429,12 @@ function change_environment(patch::Patch, ecol::Ecol_parameters, evol::Evol_para
     patch.environment += ecol.env_step * ecol.dt_env
     for s in 1:ecol.species
         if patch.N_s[s] > 0
-            # patch.morts[s] = map(i -> update_fitness(i, patch.environment, ecol, evol), patch.individuals[s])
+            tl = ecol.tl_species[s]
             for i in 1:patch.N_s[s]
-                patch.morts[s][i] = update_fitness(patch.individuals[s][i], patch.environment, ecol, evol)
+                patch.fitness[s][i] = exp(-(patch.phenotype[s][i]-patch.environment)^2 / evol.div_f)
+                patch.mortality[s][i] = 1 - patch.fitness[s][i] * (1 -  ecol.d_tl[tl])
             end
-            patch.mort_s[s] = maximum(patch.morts[s])
+            patch.mort_max_s[s] = maximum(patch.mortality[s])
         end
     end
 end
@@ -460,18 +483,20 @@ mutable struct World
             grid.X == 1 ? 0.0 : (ecol.env_range.X[2] - ecol.env_range.X[1]) / (grid.X - 1)
         step_Y =
             grid.Y == 1 ? 0.0 : (ecol.env_range.Y[2] - ecol.env_range.Y[1]) / (grid.Y - 1)
-        environment = [
+        init_environment = [
             ecol.env_range.X[1] +
             step_X * (patch_XY[1, p] - 1) +
             ecol.env_range.Y[1] +
             step_Y * (patch_XY[2, p] - 1) for p = 1:nbr_patches
         ]
 
-        patches = [Patch(ecol, evol, init, p, environment[p]) for p in 1:nbr_patches]
+        patches = [Patch(ecol, init, p, init_environment[p]) for p in 1:nbr_patches];
+        for p in 1:nbr_patches
+            populate_patch(patches[p], ecol, evol, init)
+        end
         return new(nbr_patches, patch_XY, patches, neighbours, m_neighbours, cs_m_neighbours)
     end
 end
-
 
 function next_event(world::World, ecol::Ecol_parameters, evol::Evol_parameters, dm::Direct_method)
     dt = 0.
@@ -484,50 +509,24 @@ function next_event(world::World, ecol::Ecol_parameters, evol::Evol_parameters, 
         smpl_event, s, p = sample_c(dm, ecol)
         patch = world.patches[p]
         if smpl_event == :resource_gain
-            event = increase_level(patch.resource, p, dm)
+            event = increase_resource(patch, dm)
         elseif smpl_event == :resource_loss
-            event = decrease_level(patch.resource, p, dm)
+            event = decrease_resource(patch, dm)
         elseif smpl_event == :reproduction
             tl = ecol.tl_species[s]
             event = rand() <= (patch.gain_tl[tl]/dm.c_b_ind[s, p])
             if event
-                i = rand(1:patch.N_s[s])
-                ind = patch.individuals[s][i]
+                mother = rand(1:patch.N_s[s])
                 new_p = binary_search((@view world.cs_m_neighbours[:, p, tl]), rand())
                 new_patch = world.patches[new_p]
-                new_patch.N_s[s] += 1
-                new_patch.total_N += 1
-                new_patch.N_tl[tl] += 1
-                push!(new_patch.individuals[s], Individual(ecol, evol, ind, new_patch.environment))
-                d = new_patch.individuals[s][end].mortality_rate
-                push!(new_patch.morts[s], d)
-                if d > new_patch.mort_s[s]
-                    new_patch.mort_s[s] = d
-                end
+                push_individual!(new_patch, patch, ecol, evol, s, mother)
             end
         else
             tl = ecol.tl_species[s]
             i = rand(1:patch.N_s[s])
-            ind = patch.individuals[s][i]
-            event = rand() <= ((ind.mortality_rate + patch.loss_tl[tl])/dm.c_d_ind[s, p])
+            event = rand() <= ((patch.mortality[s][i] + patch.loss_tl[tl])/dm.c_d_ind[s, p])
             if event
-                patch.N_tl[tl] -= 1
-                d = patch.individuals[s][i].mortality_rate
-                ind2 = pop!(patch.individuals[s])
-                d2 = pop!(patch.morts[s])
-                if i < patch.N_s[s]
-                    patch.individuals[s][i] = ind2
-                    patch.morts[s][i] = d2
-                end
-                patch.N_s[s] -= 1
-                patch.total_N -= 1
-                if patch.N_s[s] == 0
-                    patch.mort_s[s] = 0
-                else
-                    if d == patch.mort_s[s]
-                        patch.mort_s[s] = maximum(patch.morts[s])
-                    end
-                end
+                remove_individual!(patch, ecol, s, i)
             end
         end
     end
@@ -536,41 +535,6 @@ function next_event(world::World, ecol::Ecol_parameters, evol::Evol_parameters, 
         update_uptake(world.patches[new_p], ecol, dm)
     end
     return dt, smpl_event
-end
-
-
-function evolving_foodweb_dm(; time_steps = 1)
-    init = Init_values();
-    ecol = Ecol_parameters(; grid = (X = 5, Y = 2), env_step = 0.001, in_rate = 200., scale_uptake = 1.);
-    evol = Evol_parameters();
-    dm = Direct_method(ecol; c_b_res = 200., c_d_res = 500., c_b = 1., c_d = 1.);
-    world = World(ecol, evol, init);
-    for p in 1:ecol.patches
-        update_uptake(world.patches[p], ecol, dm)
-    end
-    time = 0.
-    time_env = 0.
-    events = zeros(Int, 4)
-    while time < time_steps
-        dt, event = next_event(world, ecol, evol, dm)
-        time += dt
-        if ecol.env_step > 0. && time > (time_env + ecol.dt_env)
-            for p in 1:ecol.patches
-                change_environment(world.patches[p], ecol, evol)
-            end
-            time_env += ecol.dt_env
-        end
-        if event == :resource_gain
-            events[1] += 1
-        elseif event == :resource_loss
-            events[2] += 1
-        elseif event == :reproduction
-            events[3] += 1
-        else
-            events[4] += 1
-        end
-    end
-    return time, events, world, ecol, dm
 end
 
 
@@ -634,13 +598,51 @@ function my_sample3(wv, tot)
 end
 
 
+function evolving_foodweb_dm(; time_steps = 1)
+    init = Init_values();
+    ecol = Ecol_parameters(; grid = (X = 5, Y = 2), env_step = 0.001, in_rate = 200., scale_uptake = 1.);
+    evol = Evol_parameters();
+    dm = Direct_method(ecol; c_b_res = 200., c_d_res = 500., c_b = 1., c_d = 1.);
+    world = World(ecol, evol, init);
+    for p in 1:world.nbr_patches
+        update_uptake(world.patches[p], ecol, dm)
+    end
+
+    time = 0.
+    time_env = 0.
+    events = zeros(Int, 4)
+    while time < time_steps
+        dt, event = next_event(world, ecol, evol, dm)
+        time += dt
+        if ecol.env_step > 0. && time > (time_env + ecol.dt_env)
+            for p in 1:world.nbr_patches
+                change_environment(world.patches[p], ecol, evol)
+            end
+            time_env += ecol.dt_env
+        end
+        if event == :resource_gain
+            events[1] += 1
+        elseif event == :resource_loss
+            events[2] += 1
+        elseif event == :reproduction
+            events[3] += 1
+        else
+            events[4] += 1
+        end
+    end
+    return time, events, world, ecol, dm
+end
+
+
+
+
 
 # @exportAll()
 # end
 # using .Evolving_foodweb
 
 # @time time, events, maxs, world, ecol = evolving_foodweb_dm(; time_steps = 10);
-@time time, events, world, ecol, dm = evolving_foodweb_dm(; time_steps = 100);
+@time time, events, world, ecol, dm = evolving_foodweb_dm(; time_steps = 500);
 time
 events
 fails
@@ -657,3 +659,5 @@ fails
 maxs
 
 1. ./ 1.3.^[1,2,3]
+
+a = b = 1
