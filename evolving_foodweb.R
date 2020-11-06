@@ -1,0 +1,93 @@
+
+
+##### libraries #####
+
+library(tidyverse)
+library(magrittr)
+library(ggpubr)
+# library(RColorBrewer)
+library(colorspace)
+
+##### colors #####
+
+cbPalette <- c("#E69F00", # orange
+               "#56B4E9", # lightblue
+               "#009E73", # green
+               "#F0E442", # yellow
+               "#0072B2", # darkblue
+               "#D55E00", # red
+               "#CC79A7") # cyan
+
+
+##### data #####
+
+data <- 
+  read_delim("output_evolving_foodweb.csv",
+             delim = ";")
+data <- 
+  read_delim("output_evolving_foodweb_evo.csv",
+             delim = ";")
+
+
+##### plots #####
+
+data %>% 
+  filter(run == 1) %>% 
+  mutate(species = ordered(species),
+         trophic_level = ordered(trophic_level),
+         patch = ordered(patch),
+         X = ordered(X),
+         Y = ordered(Y)) %>% 
+  ggplot(aes(time, environment)) +
+  geom_line(aes(linetype = Y), size = 1) +
+  # geom_line(aes(y = resource), linetype = 2, color = "darkgrey", size = 1) +
+  scale_color_discrete_qualitative() +
+  facet_wrap( ~ X, labeller = "label_both")
+
+
+data %>% 
+  filter(run == 1) %>% 
+  mutate(species = ordered(species),
+         trophic_level = ordered(trophic_level),
+         patch = ordered(patch),
+         X = ordered(X),
+         Y = ordered(Y)) %>% 
+  ggplot(aes(time, N, color = species)) +
+  geom_line(aes(linetype = Y), size = 1) +
+  # geom_line(aes(y = resource), linetype = 2, color = "darkgrey", size = 1) +
+  scale_color_discrete_qualitative() +
+  scale_y_log10() +
+  facet_grid(trophic_level ~ X, labeller = "label_both")
+
+
+data %>% 
+  filter(run == 1) %>% 
+  mutate(species = ordered(species),
+         trophic_level = ordered(trophic_level),
+         patch = ordered(patch),
+         X = ordered(X),
+         Y = ordered(Y)) %>% 
+  ggplot(aes(time, biomass, color = species)) +
+  geom_line(aes(linetype = Y), size = 1) +
+  # geom_line(aes(y = resource), linetype = 2, color = "darkgrey", size = 1) +
+  scale_color_discrete_qualitative() +
+  scale_y_log10() +
+  facet_grid(trophic_level ~ X, labeller = "label_both")
+
+
+x <- 1:250
+y <- x
+d <- 0.1
+for(i in x[-1]) 
+  y[i] <- y[i-1]*(1-d)
+y2 <- x
+d2 <- 0.03
+for(i in x[-1]) 
+  y2[i] <- y2[i-1]*(1-d2)
+
+ggplot(data = NULL, aes(x = x, y = y))+
+  geom_line() +
+  geom_line(aes(y = y2), color = "darkgrey")
+
+
+

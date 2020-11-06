@@ -5,16 +5,85 @@ using Random
 using StatsBase
 using LinearAlgebra
 using Distributions
+using Statistics
 # using Profile
 
 # using ExportAll
 
 struct Init_values
-    init_resource::Float64
-    init_N::Int
-        function Init_values(; init_resource = 200, init_N = 10000)
-            return new(init_resource, init_N)
-        end
+    ## ecological values
+    grid::NamedTuple{(:X, :Y),Tuple{Int,Int}}
+    torus::NamedTuple{(:X, :Y),Tuple{Symbol,Symbol}}
+    env_range::NamedTuple{(:X, :Y),Tuple{Tuple{Float64, Float64},Tuple{Float64, Float64}}}
+    env_step::Float64
+    dt_env::Float64
+    # dispersal
+    m::Float64
+    rho::Float64
+    m_tl::Symbol
+    # resource
+    resource::Float64
+    in_rate::Float64
+    out_rate::Float64
+    # mortality
+    d::Float64
+    d_power::Float64
+    # species
+    N::Int
+    trophic_levels::Int
+    # feeding
+    uptake_pars::Vector{Float64}
+    i_power::Float64
+    resource_conversion::Float64
+    resource_assimilation::Float64
+    assimilation_eff::Float64
+    scale_uptake::Float64
+    scale_assim::Float64
+
+    ## evolutionary values
+    omega_e::Float64
+    trait_loci::Int
+    mu::Float64
+    sigma_z::Float64
+
+    ## run values
+    runs::Int
+    time_steps::Int
+    pre_change::Int
+    post_change::Int
+    print_steps::Int
+    log_steps::Int
+    output_file::String
+
+    function Init_values(;
+        ## ecological values
+        # patches
+        grid = (X = 5, Y = 2), torus = (X = :NO, Y = :NO), env_range = (X = (-1., 1.), Y = (0., 0.)), env_step = 0., dt_env = 0.1,
+        # dispersal
+        m = 0.1, rho = 2., m_tl = :EQUAL,
+        # resource
+        resource = 200., in_rate = 200., out_rate = 0.1,
+        # mortality
+        d = 0.1, d_power = -0.25,
+        # species
+        N = 10000, trophic_levels = 3,
+        # feeding
+        uptake_pars = [0.0001, 0.4, 1.], i_power = 0.75, resource_conversion = 1., resource_assimilation = 10., assimilation_eff = 0.7, scale_uptake = 1., scale_assim = 0.,
+
+        ## evolutionary values
+        omega_e = 4.0, trait_loci = 20, mu = 1e-4, sigma_z = 0.1,
+
+        ## run values
+        runs = 1,
+        time_steps = 100,
+        pre_change = 10,
+        post_change = 10,
+        print_steps = 10,
+        log_steps = 10,
+        output_file = "output_evolving_foodweb.csv"
+        )
+        return new(grid, torus, env_range, env_step, dt_env, m, rho, m_tl, resource, in_rate, out_rate, d, d_power, N, trophic_levels, uptake_pars, i_power, resource_conversion, resource_assimilation, assimilation_eff, scale_uptake, scale_assim, omega_e, trait_loci, mu, sigma_z, runs, time_steps, pre_change, post_change, print_steps, log_steps, output_file)
+    end
 end
 
 
@@ -55,19 +124,33 @@ struct Ecol_parameters
     scale_uptake::Float64
     scale_assim::Float64
 
-    function Ecol_parameters(;
+    function Ecol_parameters(init::Init_values)
         # patches
-        grid = (X = 5, Y = 2), torus = (X = :NO, Y = :NO), env_range = (X = (-1., 1.), Y = (0., 0.)), env_step = 0., dt_env = 0.1,
+        grid = init.grid
+        torus = init.torus
+        env_range = init.env_range
+        env_step = init.env_step
+        dt_env = init.dt_env
         # dispersal
-        m = 0.1, rho = 2., m_tl = :EQUAL,
+        m = init.m
+        rho = init.rho
+        m_tl = init.m_tl
         # resource
-        in_rate = 200., out_rate = 0.1,
+        in_rate = init.in_rate
+        out_rate = init.out_rate
         # mortality
-        d = 0.1, d_power = -0.25,
+        d = init.d
+        d_power = init.d_power
         # species
-        species = 3, trophic_levels = 3,
+        trophic_levels = init.trophic_levels
         # feeding
-        uptake_pars = [0.0001, 0.4, 1.], i_power = 0.75, resource_conversion = 1., resource_assimilation = 10., assimilation_eff = 0.7, scale_uptake = 1., scale_assim = 0.)
+        uptake_pars = init.uptake_pars
+        i_power = init.i_power
+        resource_conversion = init.resource_conversion
+        resource_assimilation = init.resource_assimilation
+        assimilation_eff = init.assimilation_eff
+        scale_uptake = init.scale_uptake
+        scale_assim = init.scale_assim
 
         patches = grid.X * grid.Y
         m_power = m_tl == :DECR ? -0.25 : (m_tl == :INCR ? 0.25 : 0.)
@@ -110,7 +193,11 @@ struct Evol_parameters
     all_father::Array{Int, 1}
     all_genes::Array{Int, 1}
 
-    function Evol_parameters(; omega_e = 4.0, trait_loci = 20, mu = 1e-4, sigma_z = 0.1)
+    function Evol_parameters(init::Init_values)
+        omega_e = init.omega_e
+        trait_loci = init.trait_loci
+        mu = init.mu
+        sigma_z = init.sigma_z
         div_f = 2 * omega_e^2
         tot_genes = 2 * trait_loci
         all_mother = 1:trait_loci
@@ -217,29 +304,19 @@ function sample_c(dm::Direct_method, ecol::Ecol_parameters)
     return event, s, p
 end
 
-# struct Run
-#     dt::Float64
-#     runs::Int
-#     time_steps::Int
-#     pre_change::Int
-#     post_change::Int
-#     print_steps::Int
-#     save_steps::Int
-#     file::String
-#
-#     function Run(;
-#         dt = 0.1,
-#         runs = 1,
-#         time_steps = 100,
-#         pre_change = 10,
-#         post_change = 10,
-#         print_steps = 10,
-#         save_steps = 100,
-#         file = "output_evolving_foodweb.csv",
-#     )
-#         return new(dt, runs, time_steps, pre_change, post_change, print_steps, save_steps, file)
-#     end
-# end
+struct Run
+    runs::Int
+    time_steps::Int
+    pre_change::Int
+    post_change::Int
+    print_steps::Int
+    log_steps::Int
+    output_file::String
+
+    function Run(init::Init_values)
+        return new(init.runs, init.time_steps, init.pre_change, init.post_change, init.print_steps, init.log_steps, init.output_file)
+    end
+end
 
 
 mutable struct Patch
@@ -262,10 +339,10 @@ mutable struct Patch
     loss_tl::Vector{Float64}
     mort_max_s::Vector{Float64}
 
-    function Patch(ecol::Ecol_parameters, init::Init_values, id = 1, e = 0.)
+    function Patch(ecol::Ecol_parameters, id = 1, r = 0., e = 0.)
         patch_ID = id
         environment = e
-        resource = init.init_resource
+        resource = r
         species_ID = [Int[] for i in 1:ecol.species]
         genotype = [Array{Int8,1}[] for i in 1:ecol.species]
         phenotype = [Float64[] for i in 1:ecol.species]
@@ -368,12 +445,12 @@ function push_individual!(patch::Patch, parent_patch::Patch, ecol::Ecol_paramete
     push_individual!(patch, ecol, evol, s, genotype)
 end
 
-function populate_patch(patch::Patch, ecol::Ecol_parameters, evol::Evol_parameters, init::Init_values)
+function populate_patch(patch::Patch, ecol::Ecol_parameters, evol::Evol_parameters, N)
     prob_species = [((s - 1) ÷ (ecol.species / ecol.patches) == (patch.patch_ID - 1) ? 1 : 0) /
         10^(1.5*(ecol.tl_species[s]-1)) for s in 1:ecol.species]
     # prob_species = [1,0,0]
-    s_id = wsample(1:ecol.species, prob_species, init.init_N)
-    for i in 1:init.init_N
+    s_id = wsample(1:ecol.species, prob_species, N)
+    for i in 1:N
         push_individual!(patch, ecol, evol, s_id[i])
     end
 end
@@ -490,9 +567,9 @@ mutable struct World
             step_Y * (patch_XY[2, p] - 1) for p = 1:nbr_patches
         ]
 
-        patches = [Patch(ecol, init, p, init_environment[p]) for p in 1:nbr_patches];
+        patches = [Patch(ecol, p, init.resource, init_environment[p]) for p in 1:nbr_patches];
         for p in 1:nbr_patches
-            populate_patch(patches[p], ecol, evol, init)
+            populate_patch(patches[p], ecol, evol, init.N)
         end
         return new(nbr_patches, patch_XY, patches, neighbours, m_neighbours, cs_m_neighbours)
     end
@@ -537,6 +614,86 @@ function next_event(world::World, ecol::Ecol_parameters, evol::Evol_parameters, 
     return dt, smpl_event
 end
 
+function total_N(world::World)
+    N = sum(map(p -> p.total_N, world.patches))
+    return N
+end
+
+function genotype_mean(patch::Patch, s)
+    mn = 0.
+    if patch.N_s[s] > 0
+        mn = mean(map(mean, patch.genotype[s]))
+    else
+        mn = NaN
+    end
+    return mn
+end
+
+function genotype_var(patch::Patch, s)
+    vr = 0.
+    if patch.N_s[s] > 1
+        vr = var(map(mean, patch.genotype[s]))
+    else
+        vr = NaN
+    end
+    return vr
+end
+
+function phenotype_mean(patch::Patch, s)
+    mn = 0.
+    if patch.N_s[s] > 0
+        mn = mean(patch.phenotype[s])
+    else
+        mn = NaN
+    end
+    return mn
+end
+
+function phenotype_var(patch::Patch, s)
+    vr = 0.
+    if patch.N_s[s] > 1
+        vr = var(patch.phenotype[s])
+    else
+        vr = NaN
+    end
+    return vr
+end
+
+function fitness_mean(patch::Patch, s)
+    mn = 0.
+    if patch.N_s[s] > 0
+        mn = mean(patch.fitness[s])
+    else
+        mn = NaN
+    end
+    return mn
+end
+
+function fitness_var(patch::Patch, s)
+    vr = 0.
+    if patch.N_s[s] > 1
+        vr = var(patch.fitness[s])
+    else
+        vr = NaN
+    end
+    return vr
+end
+
+function log_titles(f)
+    write(f, "grid_X;grid_Y;torus_X;torus_Y;patches;e_step;m;rho;nbr_loci;sigma_z;mu;omega_e;d;run;time;patch;X;Y;environment;resource;species;trophic_level;bodymass;mortality;N;biomass;genotype_mean;genotype_var;phenotype_mean;phenotype_var;fitness_mean;fitness_var\n")
+end
+
+function log_results(f, world::World, ecol::Ecol_parameters, evol::Evol_parameters, r, t)
+    for p in 1:world.nbr_patches, s in 1:ecol.species
+        patch = world.patches[p]
+        tl = ecol.tl_species[s]
+        write(f, "$(ecol.grid.X);$(ecol.grid.Y);$(ecol.torus.X);$(ecol.torus.X);$(ecol.patches);$(ecol.env_step);$(ecol.m);$(ecol.rho);$(evol.trait_loci);$(evol.sigma_z);$(evol.mu);$(evol.omega_e);$(ecol.d);$(r);$(t);$(p);$(world.patch_XY[1,p]);$(world.patch_XY[2,p]);$(patch.environment);$(patch.resource);$(s);$(tl);$(ecol.bodymass_tl[tl]);$(ecol.d_tl[tl]);$(patch.N_s[s]);$(ecol.bodymass_tl[tl]*patch.N_s[s]);$(genotype_mean(patch, s));$(genotype_var(patch, s));$(phenotype_mean(patch, s));$(phenotype_var(patch, s));$(fitness_mean(patch, s));$(fitness_var(patch, s))\n")
+    end
+end
+
+function print_results(world::World, r, t)
+    println("run = $r;  time = $t;  N = $(total_N(world))")
+end
 
 function binary_search(lst, val)
     low = 1
@@ -598,66 +755,116 @@ function my_sample3(wv, tot)
 end
 
 
-function evolving_foodweb_dm(; time_steps = 1)
-    init = Init_values();
-    ecol = Ecol_parameters(; grid = (X = 5, Y = 2), env_step = 0.001, in_rate = 200., scale_uptake = 1.);
-    evol = Evol_parameters();
-    dm = Direct_method(ecol; c_b_res = 200., c_d_res = 500., c_b = 1., c_d = 1.);
-    world = World(ecol, evol, init);
-    for p in 1:world.nbr_patches
-        update_uptake(world.patches[p], ecol, dm)
-    end
+function evolving_foodweb_dm(init::Init_values)
+    run = Run(init);
+    ecol = Ecol_parameters(init);
+    evol = Evol_parameters(init);
+    dm = Direct_method(ecol; c_b_res = ecol.in_rate, c_d_res = ecol.in_rate*2, c_b = 1., c_d = 1.);
 
-    time = 0.
-    time_env = 0.
-    events = zeros(Int, 4)
-    while time < time_steps
-        dt, event = next_event(world, ecol, evol, dm)
-        time += dt
-        if ecol.env_step > 0. && time > (time_env + ecol.dt_env)
-            for p in 1:world.nbr_patches
-                change_environment(world.patches[p], ecol, evol)
-            end
-            time_env += ecol.dt_env
+    f = open(run.output_file,"w")
+    log_titles(f)
+
+    for r in 1:run.runs
+        world = World(ecol, evol, init);
+        for p in 1:world.nbr_patches
+            update_uptake(world.patches[p], ecol, dm)
         end
-        if event == :resource_gain
-            events[1] += 1
-        elseif event == :resource_loss
-            events[2] += 1
-        elseif event == :reproduction
-            events[3] += 1
-        else
-            events[4] += 1
+        time = 0.
+        time_env = run.pre_change + ecol.dt_env
+        time_log = run.log_steps
+        time_print = run.print_steps
+        events = zeros(Int, 4)
+
+        log_results(f, world, ecol, evol, r, round(time))
+        println()
+        print_results(world, r, round(time))
+
+        while time < run.time_steps
+            dt, event = next_event(world, ecol, evol, dm)
+            time += dt
+            if event == :resource_gain
+                events[1] += 1
+            elseif event == :resource_loss
+                events[2] += 1
+            elseif event == :reproduction
+                events[3] += 1
+            else
+                events[4] += 1
+            end
+
+            if ecol.env_step > 0. && time < (run.time_steps - run.post_change) && time > time_env
+                for p in 1:world.nbr_patches
+                    change_environment(world.patches[p], ecol, evol)
+                end
+                time_env += ecol.dt_env
+            end
+            if time > time_log
+                log_results(f, world, ecol, evol, r, round(time))
+                time_log += run.log_steps
+            end
+            if time > time_print
+                print_results(world, r, round(time))
+                time_print += run.print_steps
+            end
         end
     end
-    return time, events, world, ecol, dm
+    close(f)
+    # return time, events, world, ecol, dm
 end
 
 
+init = Init_values(;
+    ## ecological input
+    # patches
+    grid = (X = 3, Y = 3),
+    torus = (X = :NO, Y = :NO),
+    env_range = (X = (-1., 1.), Y = (-0.1, 0.1)),
+    env_step = 1. / 1000.,
+    dt_env = 1.,
+    # dispersal
+    m = 0.01,
+    rho = 2.,
+    m_tl = :EQUAL,
+    # resource
+    resource = 200.,
+    in_rate = 200.,
+    out_rate = 0.1,
+    # mortality
+    d = 0.1,
+    d_power = -0.25,
+    # species
+    N = 20000,
+    trophic_levels = 3,
+    # feeding
+    uptake_pars = [0.0001, 0.4, 1.],
+    i_power = 0.75,
+    resource_conversion = 1.,
+    resource_assimilation = 10.,
+    assimilation_eff = 0.7,
+    scale_uptake = 2.,
+    scale_assim = 0.,
 
+    ## evolutionary input
+    omega_e = 4.0,
+    trait_loci = 20,
+    mu = 1e-4,
+    sigma_z = 0.1,
+
+    ## run input
+    runs = 1,
+    time_steps = 21000,
+    pre_change = 10000,
+    post_change = 10000,
+    print_steps = 1000,
+    log_steps = 100,
+    output_file = "output_evolving_foodweb_evo.csv"
+);
 
 
 # @exportAll()
 # end
 # using .Evolving_foodweb
 
-# @time time, events, maxs, world, ecol = evolving_foodweb_dm(; time_steps = 10);
-@time time, events, world, ecol, dm = evolving_foodweb_dm(; time_steps = 500);
-time
-events
-fails
-@. events/(fails+events)
-print(maxs[4])
+@time evolving_foodweb_dm(init);
 
-# @profiler time, events, maxs, world, ecol = evolving_foodweb_dm(; time_steps = 50);
-@profiler time, events, world, ecol, dm = evolving_foodweb_dm(; time_steps = 100);
-# @profview time, events, fails, maxs, patch, ecol = evolving_foodweb_dm(; time_steps = 100);
-time
-events
-fails
-@. events/(fails+events)
-maxs
-
-1. ./ 1.3.^[1,2,3]
-
-a = b = 1
+@profiler evolving_foodweb_dm(init);
