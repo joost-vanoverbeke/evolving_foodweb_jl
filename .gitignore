@@ -3,5 +3,5 @@
 .RData
 .Ruserdata
 
-.txt
-.csv
+*.txt
+*.csv

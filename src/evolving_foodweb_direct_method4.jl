@@ -25,12 +25,15 @@ struct Init_values
     resource::Float64
     in_rate::Float64
     out_rate::Float64
+    # species
+    N::Int
+    # trophic levels
+    trophic_levels::Int
+    bm_offset::Float64
+    bm_power::Float64
     # mortality
     d::Float64
     d_power::Float64
-    # species
-    N::Int
-    trophic_levels::Int
     # feeding
     uptake_pars::Vector{Float64}
     i_power::Float64
@@ -63,10 +66,12 @@ struct Init_values
         m = 0.1, rho = 2., m_tl = :EQUAL,
         # resource
         resource = 200., in_rate = 200., out_rate = 0.1,
+        # species
+        N = 10000,
+        # trophic levels
+        trophic_levels = 3, bm_offset = 1., bm_power = 1.,
         # mortality
         d = 0.1, d_power = -0.25,
-        # species
-        N = 10000, trophic_levels = 3,
         # feeding
         uptake_pars = [0.0001, 0.4, 1.], i_power = 0.75, resource_conversion = 1., resource_assimilation = 10., assimilation_eff = 0.7, scale_uptake = 1., scale_assim = 0.,
 
@@ -82,7 +87,7 @@ struct Init_values
         log_steps = 10,
         output_file = "output_evolving_foodweb.csv"
         )
-        return new(grid, torus, env_range, env_step, dt_env, m, rho, m_tl, resource, in_rate, out_rate, d, d_power, N, trophic_levels, uptake_pars, i_power, resource_conversion, resource_assimilation, assimilation_eff, scale_uptake, scale_assim, omega_e, trait_loci, mu, sigma_z, runs, time_steps, pre_change, post_change, print_steps, log_steps, output_file)
+        return new(grid, torus, env_range, env_step, dt_env, m, rho, m_tl, resource, in_rate, out_rate, N, trophic_levels, bm_offset, bm_power, d, d_power, uptake_pars, i_power, resource_conversion, resource_assimilation, assimilation_eff, scale_uptake, scale_assim, omega_e, trait_loci, mu, sigma_z, runs, time_steps, pre_change, post_change, print_steps, log_steps, output_file)
     end
 end
 
@@ -103,16 +108,18 @@ struct Ecol_parameters
     # resource
     in_rate::Float64
     out_rate::Float64
+    # species
+    species::Int
+    # trophic levels
+    trophic_levels::Int
+    bodymass_tl::Array{Float64, 1}
+    tl_species::Vector{Int}
+    bm_offset::Float64
+    bm_power::Float64
     # mortality
     d::Float64
     d_power::Float64
     d_tl::Vector{Float64}
-    # species
-    species::Int
-    trophic_levels::Int
-    # bodymass classes
-    bodymass_tl::Array{Float64, 1}
-    tl_species::Vector{Int}
     # feeding
     uptake_pars::Vector{Float64}
     i_power::Float64
@@ -138,13 +145,15 @@ struct Ecol_parameters
         # resource
         in_rate = init.in_rate
         out_rate = init.out_rate
+        # trophic levels
+        trophic_levels = init.trophic_levels
+        bm_offset = init.bm_offset
+        bm_power = init.bm_power
         # mortality
         d = init.d
         d_power = init.d_power
-        # species
-        trophic_levels = init.trophic_levels
         # feeding
-        uptake_pars = init.uptake_pars
+        uptake_pars = copy(init.uptake_pars)
         i_power = init.i_power
         resource_conversion = init.resource_conversion
         resource_assimilation = init.resource_assimilation
@@ -158,7 +167,7 @@ struct Ecol_parameters
         uptake_pars[1] /= scale_uptake
         species = patches*trophic_levels
         tl_species = [(s - 1) % trophic_levels + 1 for s = 1:species]
-        bodymass_tl = [10^(l - 1) for l = 1:trophic_levels]
+        bodymass_tl = [bm_offset*10^((l - 1)*bm_power) for l = 1:trophic_levels]
         d_tl = d .* bodymass_tl.^d_power
         uptake_tl = zeros(trophic_levels, 2)
         uptake_tl[:, 1] .= @. uptake_pars[1] * bodymass_tl^i_power
@@ -177,7 +186,7 @@ struct Ecol_parameters
                 conversion_tl[tl] = assimilation_eff*(1-scale_assim*bodymass_tl[tl]^(-i_power)) * bodymass_tl[tl-1]/bodymass_tl[tl]
             end
         end
-        return new(grid, torus, env_range, env_step, dt_env, patches, m, rho, m_tl, m_power, in_rate, out_rate, d, d_power, d_tl, species, trophic_levels, bodymass_tl, tl_species, uptake_pars, i_power, uptake_tl, resource_conversion, resource_assimilation, assimilation_eff, conversion_tl, scale_uptake, scale_assim)
+        return new(grid, torus, env_range, env_step, dt_env, patches, m, rho, m_tl, m_power, in_rate, out_rate, species, trophic_levels, bodymass_tl, tl_species, bm_offset, bm_power, d, d_power, d_tl, uptake_pars, i_power, uptake_tl, resource_conversion, resource_assimilation, assimilation_eff, conversion_tl, scale_uptake, scale_assim)
     end
 end
 
@@ -446,8 +455,10 @@ function push_individual!(patch::Patch, parent_patch::Patch, ecol::Ecol_paramete
 end
 
 function populate_patch(patch::Patch, ecol::Ecol_parameters, evol::Evol_parameters, N)
+    # prob_species = [((s - 1) ÷ (ecol.species / ecol.patches) == (patch.patch_ID - 1) ? 1 : 0) /
+        # 10^(1.5*(ecol.tl_species[s]-1)) for s in 1:ecol.species]
     prob_species = [((s - 1) ÷ (ecol.species / ecol.patches) == (patch.patch_ID - 1) ? 1 : 0) /
-        10^(1.5*(ecol.tl_species[s]-1)) for s in 1:ecol.species]
+        ecol.bodymass_tl[ecol.tl_species[s]] for s in 1:ecol.species]
     # prob_species = [1,0,0]
     s_id = wsample(1:ecol.species, prob_species, N)
     for i in 1:N
@@ -569,7 +580,7 @@ mutable struct World
 
         patches = [Patch(ecol, p, init.resource, init_environment[p]) for p in 1:nbr_patches];
         for p in 1:nbr_patches
-            populate_patch(patches[p], ecol, evol, init.N)
+            populate_patch(patches[p], ecol, evol, Int(init.N*ecol.scale_uptake))
         end
         return new(nbr_patches, patch_XY, patches, neighbours, m_neighbours, cs_m_neighbours)
     end
@@ -816,25 +827,28 @@ end
 init = Init_values(;
     ## ecological input
     # patches
-    grid = (X = 3, Y = 3),
+    grid = (X = 1, Y = 1),
     torus = (X = :NO, Y = :NO),
     env_range = (X = (-1., 1.), Y = (-0.1, 0.1)),
-    env_step = 1. / 1000.,
+    env_step = 0. / 1000.,
     dt_env = 1.,
     # dispersal
-    m = 0.01,
+    m = 0.0,
     rho = 2.,
     m_tl = :EQUAL,
     # resource
-    resource = 200.,
-    in_rate = 200.,
+    resource = 100.,
+    in_rate = 100.,
     out_rate = 0.1,
+    # species
+    N = 5000,
+    # trophic levels
+    trophic_levels = 3,
+    bm_offset = 1.,
+    bm_power = 1.,
     # mortality
     d = 0.1,
     d_power = -0.25,
-    # species
-    N = 20000,
-    trophic_levels = 3,
     # feeding
     uptake_pars = [0.0001, 0.4, 1.],
     i_power = 0.75,
@@ -852,12 +866,12 @@ init = Init_values(;
 
     ## run input
     runs = 1,
-    time_steps = 21000,
-    pre_change = 10000,
-    post_change = 10000,
-    print_steps = 1000,
-    log_steps = 100,
-    output_file = "output_evolving_foodweb_evo.csv"
+    time_steps = 2000,
+    pre_change = 1000,
+    post_change = 1000,
+    print_steps = 100,
+    log_steps = 10,
+    output_file = "output_evolving_foodweb.csv"
 );
 
 
