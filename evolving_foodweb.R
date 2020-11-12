@@ -22,7 +22,10 @@ cbPalette <- c("#E69F00", # orange
 ##### data #####
 
 data <- 
-  read_delim("output_evolving_foodweb.csv",
+  read_delim("output_evolving_foodweb_sexual_inv.csv",
+             delim = ";")
+data <- 
+  read_delim("output_evolving_foodweb_rep.csv",
              delim = ";")
 # data <- 
 #   read_delim("output_evolving_foodweb_evo.csv",
@@ -42,7 +45,25 @@ data %>%
   geom_line(aes(linetype = Y), size = 1) +
   # geom_line(aes(y = resource), linetype = 2, color = "darkgrey", size = 1) +
   scale_color_discrete_qualitative() +
-  facet_wrap( ~ X, labeller = "label_both")
+  facet_wrap( ~ X, labeller = "label_both", ncol = 1)
+
+
+data %>% 
+  filter(run == 1,
+         trophic_level == 3,
+         time%%100 == 0) %>% 
+  mutate(species = ordered(species),
+         trophic_level = ordered(trophic_level),
+         patch = ordered(patch),
+         X = ordered(X),
+         Y = ordered(Y)) %>% 
+  ggplot(aes(time, N, group = interaction(Y, species), color = species)) +
+  geom_line(aes(y = resource), linetype = 2, color = "darkgrey", size = 1) +
+  # geom_line(aes(linetype = Y), size = 1) +
+  geom_line(size = 1) +
+  scale_color_discrete_qualitative() +
+  scale_y_log10(breaks = c(1,3,10,30,100,300,1000,3000,10000,30000,100000)) +
+  facet_grid(trophic_level + Y ~ X, labeller = "label_both")
 
 
 data %>% 
@@ -52,12 +73,13 @@ data %>%
          patch = ordered(patch),
          X = ordered(X),
          Y = ordered(Y)) %>% 
-  ggplot(aes(time, N, color = species)) +
-  geom_line(aes(linetype = Y), size = 1) +
+  ggplot(aes(time, N, group = interaction(Y, species), color = species)) +
   geom_line(aes(y = resource), linetype = 2, color = "darkgrey", size = 1) +
+  # geom_line(aes(linetype = Y), size = 1) +
+  geom_line(size = 1) +
   scale_color_discrete_qualitative() +
-  scale_y_log10(breaks = c(100,300,1000,3000,10000,30000,100000)) +
-  facet_grid(trophic_level ~ X, labeller = "label_both")
+  scale_y_log10(breaks = c(1,3,10,30,100,300,1000,3000,10000,30000,100000)) +
+  facet_grid(trophic_level + Y ~ X, labeller = "label_both")
 
 
 data %>% 
@@ -68,13 +90,14 @@ data %>%
          X = ordered(X),
          Y = ordered(Y)) %>% 
   ggplot(aes(time, biomass, color = species)) +
-  geom_line(aes(linetype = Y), size = 1) +
   # geom_line(aes(y = resource), linetype = 2, color = "darkgrey", size = 1) +
+  geom_line(aes(linetype = Y), size = 1) +
   scale_color_discrete_qualitative() +
-  scale_y_log10() +
+  scale_y_log10(breaks = c(1,3,10,30,100,300,1000,3000,10000,30000,100000)) +
   facet_grid(trophic_level ~ X, labeller = "label_both")
 
 
+# difference in mortality
 x <- 1:250
 y <- x
 d <- 0.1
