@@ -2,7 +2,8 @@
 .Rhistory
 .RData
 .Ruserdata
-.Rproj
+
+*.Rproj
 
 *.txt
 *.csv
