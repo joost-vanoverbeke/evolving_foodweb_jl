@@ -93,8 +93,8 @@ struct Init_values
     end
 end
 
-
-struct Ecol_parameters
+# struct Ecol_parameters
+mutable struct Ecol_parameters
     # patches
     grid::NamedTuple{(:X, :Y),Tuple{Int,Int}}
     torus::NamedTuple{(:X, :Y),Tuple{Symbol,Symbol}}
@@ -169,10 +169,14 @@ struct Ecol_parameters
         scale_assim = init.scale_assim
 
         patches = grid.X * grid.Y
+        if patches == 1
+            m = 0.
+        end
         m_power = m_tl == :DECR ? -0.25 : (m_tl == :INCR ? 0.25 : 0.)
         in_rate = in_rate*scale_uptake
         uptake_pars[1] /= scale_uptake
         species = patches*trophic_levels
+        # species = 1
         tl_species = [(s - 1) % trophic_levels + 1 for s = 1:species]
         bodymass_tl = [bm_offset*10^((l - 1)*bm_power) for l = 1:trophic_levels]
         d_tl = d .* bodymass_tl.^d_power
@@ -425,7 +429,12 @@ function push_individual!(patch::Patch, ecol::Ecol_parameters, evol::Evol_parame
 end
 
 function push_individual!(patch::Patch, ecol::Ecol_parameters, evol::Evol_parameters, s::Int)
-    genotype = Int8.(round.(rand(evol.tot_genes) .* 0.5 .* rand([-1.0, 1.0], evol.tot_genes) .+ patch.environment))
+    g = evol.tot_genes
+    e = patch.environment
+    v = sign(e)*cld(round(abs(e)*g),g)
+    n = abs(round(e*g/v))
+    genotype = Int8.([(i > cld(n,2) && i <= g/2) || (i > g/2 + fld(n,2)) ? 0 : v for i in 1:g])
+    # genotype = Int8.(round.(rand(evol.tot_genes) .* 0.5 .* rand([-1.0, 1.0], evol.tot_genes) .+ patch.environment))
     push_individual!(patch, ecol, evol, s, genotype)
 end
 
@@ -494,11 +503,10 @@ function push_individual!(patch::Patch, parent_patch::Patch, ecol::Ecol_paramete
 end
 
 function populate_patch(patch::Patch, ecol::Ecol_parameters, evol::Evol_parameters, N)
-    # prob_species = [((s - 1) ÷ (ecol.species / ecol.patches) == (patch.patch_ID - 1) ? 1 : 0) /
-        # 10^(1.5*(ecol.tl_species[s]-1)) for s in 1:ecol.species]
     prob_species = [((s - 1) ÷ (ecol.species / ecol.patches) == (patch.patch_ID - 1) ? 1 : 0) /
         ecol.bodymass_tl[ecol.tl_species[s]] for s in 1:ecol.species]
-    # prob_species = [1,0,0]
+    # prob_species = [1 /
+    #     ecol.bodymass_tl[ecol.tl_species[s]] for s in 1:ecol.species]
     s_id = wsample(1:ecol.species, prob_species, N)
     for i in 1:N
         push_individual!(patch, ecol, evol, s_id[i])
@@ -640,6 +648,19 @@ mutable struct World
         end
         return new(nbr_patches, patch_XY, env_X, patches, neighbours, m_neighbours, cs_m_neighbours)
     end
+end
+
+function calc_m_neighbours(world::World, ecol::Ecol_parameters)
+    temp_m_neighbours = @. ecol.rho * exp(-ecol.rho * world.neighbours)
+    temp_m_neighbours[diagind(temp_m_neighbours)] .= 0.
+    temp_m_neighbours ./= sum(temp_m_neighbours; dims = 1)
+    world.m_neighbours = repeat(temp_m_neighbours, outer = [1, 1, ecol.trophic_levels])
+    disp_tl = ecol.m .* ecol.bodymass_tl .^ ecol.m_power
+    world.m_neighbours .= [
+        i == j ? 1 - disp_tl[c] : disp_tl[c] * world.m_neighbours[i, j, c]
+        for i = 1:world.nbr_patches, j = 1:world.nbr_patches, c = 1:ecol.trophic_levels
+    ]
+    world.cs_m_neighbours = cumsum(world.m_neighbours; dims = 1)
 end
 
 function change_environment_CC(world::World, ecol::Ecol_parameters)
@@ -858,6 +879,14 @@ function evolving_foodweb_dm(init::Init_values)
         time_print = run.print_steps
         events = zeros(Int, 4)
 
+        # m_min = 0.0
+        # m_max = 0.2
+        # m_step = 0.01
+        # m_sign = 1.
+        # m_timestep = 1000
+        # ecol.m = m_min
+        # time_m = m_timestep
+
         log_results(f, world, ecol, evol, r, round(time))
         println()
         print_results(world, r, round(time))
@@ -881,6 +910,16 @@ function evolving_foodweb_dm(init::Init_values)
                 change_environment_local(world, ecol, evol, dm)
                 time_env += ecol.dt_env
             end
+
+            # if time > time_m
+            #     if ecol.m < m_min || ecol.m > m_max
+            #         m_sign = -m_sign
+            #     end
+            #     ecol.m += m_sign * m_step
+            #     calc_m_neighbours(world, ecol)
+            #     time_m += m_timestep
+            # end
+
             if time > time_log
                 log_results(f, world, ecol, evol, r, round(time))
                 time_log += run.log_steps
@@ -894,65 +933,3 @@ function evolving_foodweb_dm(init::Init_values)
     close(f)
     # return time, events, world, ecol, dm
 end
-
-
-init = Init_values(;
-    ## ecological input
-    # patches
-    grid = (X = 5, Y = 10),
-    torus = (X = :NO, Y = :NO),
-    env_range = (X = (-1., 1.), Y = (-0.5, 0.5)),
-    env_step_CC = 1. / 1000.,
-    env_step_local = 0.025,
-    dt_env = 1.,
-    # dispersal
-    m = 0.01,
-    rho = 2.,
-    m_tl = :EQUAL,
-    # resource
-    resource = 100.,
-    in_rate = 100.,
-    out_rate = 0.1,
-    # species
-    N = 5000,
-    rep_type = :SEXUAL,
-    # trophic levels
-    trophic_levels = 3,
-    bm_offset = 100.,
-    bm_power = -1.,
-    # mortality
-    d = 0.1,
-    d_power = -0.25,
-    # feeding
-    uptake_pars = [0.0001, 0.4, 1.],
-    i_power = 0.75,
-    resource_conversion = 1.,
-    resource_assimilation = 10.,
-    assimilation_eff = 0.7,
-    scale_uptake = 2.,
-    scale_assim = 0.,
-
-    ## evolutionary input
-    omega_e = 4.0,
-    trait_loci = 20,
-    mu = 1e-4,
-    sigma_z = 0.1,
-
-    ## run input
-    runs = 5,
-    time_steps = 11000,
-    pre_change = 5000,
-    post_change = 5000,
-    print_steps = 100,
-    log_steps = 100,
-    output_file = "output_evolving_foodweb_sexual_inv_big.csv"
-);
-
-
-# @exportAll()
-# end
-# using .Evolving_foodweb
-
-@time evolving_foodweb_dm(init);
-
-@profiler evolving_foodweb_dm(init);
