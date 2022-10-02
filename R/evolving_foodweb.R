@@ -4,7 +4,7 @@
 
 library(tidyverse)
 library(magrittr)
-library(ggpubr)
+# library(ggpubr)
 # library(RColorBrewer)
 library(colorspace)
 
@@ -18,14 +18,24 @@ cbPalette <- c("#E69F00", # orange
                "#D55E00", # red
                "#CC79A7") # cyan
 
-
 ##### data #####
 
 data <- 
-  read_delim("output_X10_Y1_3tl.csv", delim = ";") %>% 
-  mutate(origin = (species+2)%/%3,
-         origin_X = ((origin-1)%%5)+1,
-         origin_Y = ((origin-1)%/%5)+1,
+  read_delim("../results/output_X10_Y1_3tl.csv", delim = ";")
+data <- 
+  read_delim("results/output_X1_Y1_3tl.csv", delim = ";")
+# data <-
+#   read_delim("../results/output_X1_Y1_3tl_inv.csv", delim = ";")
+
+tls <- max(data$trophic_level)  
+nX <- max(data$X)
+nY <- max(data$Y)
+
+data <- 
+  data %>% 
+  mutate(origin = (species+tls-1)%/%tls,
+         origin_X = ((origin-1)%%nX)+1,
+         origin_Y = ((origin-1)%/%nX)+1,
          origin = ordered(origin),
          origin_X = ordered(origin_X),
          origin_Y = ordered(origin_Y),
@@ -35,41 +45,22 @@ data <-
          X = ordered(X),
          Y = ordered(Y))
 
-data_origin <-
-  data %>% 
-  distinct(species, trophic_level, origin, origin_X, origin_Y)
+# data_origin <-
+#   data %>% 
+#   distinct(species, trophic_level, origin, origin_X, origin_Y)
 
 
 ##### plots #####
 
 
 # data %>% 
-#   filter(run == 1) %>% 
-#   ggplot(aes(x = time)) +
-#   geom_line(aes(y = genotype_mean, color = species), linetype = 1, size = 1) +
-#   geom_line(aes(y = environment), linetype = 2, size = 1.5, alpha = 0.5) +
+#   filter(run == 1,
+#          time > 100) %>% 
+#   ggplot(aes(time, environment)) +
+#   geom_line(aes(linetype = Y), size = 1) +
 #   scale_color_discrete_qualitative() +
-#   facet_grid(Y ~ X, labeller = "label_both") +
-#   guides(color = FALSE)
-# 
-# 
-# data %>% 
-#   filter(run == 1) %>% 
-#   ggplot(aes(time, fitness_mean, color = species)) +
-#   geom_line(linetype = 1, size = 1) +
-#   scale_color_discrete_qualitative() +
-#   facet_grid(Y ~ X, labeller = "label_both") +
-#   guides(color = FALSE)
-
-
-data %>% 
-  filter(run == 1,
-         time > 100) %>% 
-  ggplot(aes(time, environment)) +
-  geom_line(aes(linetype = Y), size = 1) +
-  scale_color_discrete_qualitative() +
-  facet_wrap( ~ X, labeller = "label_both", nrow = 1) +
-  guides(color = FALSE, linetype = FALSE)
+#   facet_wrap( ~ X, labeller = "label_both", nrow = 1) +
+#   guides(color = FALSE, linetype = FALSE)
 
 
 data %>% 
@@ -82,6 +73,25 @@ data %>%
   facet_grid(Y + trophic_level ~ X, labeller = "label_both", scales = "free_y") +
   # facet_grid(trophic_level + Y ~ X, labeller = "label_both", scales = "free_y") +
   guides(color = FALSE, linetype = FALSE)
+
+
+data %>% 
+  filter(run == 1) %>% 
+  ggplot(aes(x = time)) +
+  geom_line(aes(y = genotype_mean, color = species), linetype = 1, size = 1) +
+  geom_line(aes(y = environment), linetype = 2, size = 1.5, alpha = 0.5) +
+  scale_color_discrete_qualitative() +
+  facet_grid(Y ~ X, labeller = "label_both") +
+  guides(color = FALSE)
+
+
+data %>% 
+  filter(run == 1) %>% 
+  ggplot(aes(time, fitness_mean, color = species)) +
+  geom_line(linetype = 1, size = 1) +
+  scale_color_discrete_qualitative() +
+  facet_grid(Y ~ X, labeller = "label_both") +
+  guides(color = FALSE)
 
 
 data %>% 

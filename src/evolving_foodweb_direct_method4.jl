@@ -503,8 +503,8 @@ function push_individual!(patch::Patch, parent_patch::Patch, ecol::Ecol_paramete
 end
 
 function populate_patch(patch::Patch, ecol::Ecol_parameters, evol::Evol_parameters, N)
-    prob_species = [((s - 1) ÷ (ecol.species / ecol.patches) == (patch.patch_ID - 1) ? 1 : 0) /
-        ecol.bodymass_tl[ecol.tl_species[s]] for s in 1:ecol.species]
+    prob_species = [(((s - 1) ÷ (ecol.species / ecol.patches) == (patch.patch_ID - 1) ? 1 : 0) /
+        ecol.bodymass_tl[ecol.tl_species[s]]) ^ (1) for s in 1:ecol.species]
     # prob_species = [1 /
     #     ecol.bodymass_tl[ecol.tl_species[s]] for s in 1:ecol.species]
     s_id = wsample(1:ecol.species, prob_species, N)
@@ -886,6 +886,10 @@ function evolving_foodweb_dm(init::Init_values)
         # m_timestep = 1000
         # ecol.m = m_min
         # time_m = m_timestep
+
+        # println("init step_CC = $(init.env_step_CC)")
+        # println("ecol step_CC = $(ecol.env_step_CC)")
+        # println("dt_env = $(ecol.dt_env)")
 
         log_results(f, world, ecol, evol, r, round(time))
         println()

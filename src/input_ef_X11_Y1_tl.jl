@@ -1,31 +1,32 @@
 
-init_1p_3tl = Init_values(;
+init_X11_Y1_1tl = Init_values(;
     ## ecological input
     # patches
-    grid = (X = 1, Y = 1),
+    grid = (X = 11, Y = 1),
     torus = (X = :NO, Y = :NO),
-    env_range = (X = (-0.01, 0.01), Y = (-0.01, 0.01)),
-    env_step_CC = 0. / 1000.,
-    env_step_local = 0.0,
+    env_range = (X = (-0.5, 0.5), Y = (-0.05, 0.05)),
+    env_step_CC = 0.0,
+    # env_step_CC = 0.0002,
+    env_step_local = 0.005,
     dt_env = 1.,
     # dispersal
-    m = 0.0,
+    m = 0.01,
     rho = 2.0,
     m_tl = :EQUAL,
     # resource
-    resource = 200.,
-    in_rate = 200.,
+    resource = 100.,
+    in_rate = 100.,
     out_rate = 0.1,
     # species
-    N = 10000,
-    rep_type = :SEXUAL,
+    N = 5000,
+    rep_type = :ASEXUAL,
     # trophic levels
-    trophic_levels = 3,
+    trophic_levels = 1,
     bm_offset = 1.,
     bm_power = 1.,
     # mortality
-    d = 0.1,
-    d_power = -0.25,
+    d = 0.2,
+    d_power = -0.5,
     # feeding
     uptake_pars = [0.0001, 0.4, 1.],
     i_power = 0.75,
@@ -42,19 +43,19 @@ init_1p_3tl = Init_values(;
     sigma_z = 0.1,
 
     ## run input
-    runs = 1,
-    time_steps = 10000,
-    pre_change = 5000,
-    post_change = 5000,
-    print_steps = 1000,
-    log_steps = 500,
-    output_file = "output_1p_3tl.csv"
+    runs = 5,
+    time_steps = 6000,
+    pre_change = 2500,
+    post_change = 2500,
+    print_steps = 500,
+    log_steps = 100,
+    output_file = "results/output_X11_Y1_tl1_d2e-1_dp5e-1_noCC.csv"
 );
 
 # @exportAll()
 # end
 # using .Evolving_foodweb
 
-@time evolving_foodweb_dm(init_1p_3tl);
+@time evolving_foodweb_dm(init_X11_Y1_1tl);
 
 # @profiler evolving_foodweb_dm(init);

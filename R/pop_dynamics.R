@@ -3,7 +3,7 @@
 
 library(tidyverse)
 library(magrittr)
-library(ggpubr)
+# library(ggpubr)
 # library(RColorBrewer)
 library(colorspace)
 
@@ -24,7 +24,7 @@ cbPalette <- c("#E69F00", # orange
 ##### data #####
 
 data <- 
-  read_delim("output_test_15p_3tl.csv",
+  read_delim("../results/output_X10_Y1_3tl.csv",
              delim = ";")
 
 
