@@ -53,16 +53,6 @@ data <-
 ##### plots #####
 
 
-# data %>% 
-#   filter(run == 1,
-#          time > 100) %>% 
-#   ggplot(aes(time, environment)) +
-#   geom_line(aes(linetype = Y), size = 1) +
-#   scale_color_discrete_qualitative() +
-#   facet_wrap( ~ X, labeller = "label_both", nrow = 1) +
-#   guides(color = FALSE, linetype = FALSE)
-
-
 data %>% 
   filter(run == 1,
          time > 100) %>% 
