@@ -16,6 +16,7 @@ struct Init_values
     torus::NamedTuple{(:X, :Y),Tuple{Symbol,Symbol}}
     env_range::NamedTuple{(:X, :Y),Tuple{Tuple{Float64, Float64},Tuple{Float64, Float64}}}
     env_step_CC::Float64
+    time_CC::Int
     env_step_local::Float64
     dt_env::Float64
     # dispersal
@@ -53,9 +54,7 @@ struct Init_values
 
     ## run values
     runs::Int
-    time_steps::Int
-    pre_change::Int
-    post_change::Int
+    pre_post_change::Int
     print_steps::Int
     log_steps::Int
     output_file::String
@@ -63,7 +62,8 @@ struct Init_values
     function Init_values(;
         ## ecological values
         # patches
-        grid = (X = 5, Y = 2), torus = (X = :NO, Y = :NO), env_range = (X = (-1., 1.), Y = (0., 0.)), env_step_CC = 0., env_step_local = 0.01, dt_env = 0.1,
+        grid = (X = 5, Y = 2), torus = (X = :NO, Y = :NO), env_range = (X = (-1., 1.), Y = (0., 0.)), 
+        env_step_CC = 0., time_CC = 80, env_step_local = 0.01, dt_env = 0.1,
         # dispersal
         m = 0.1, rho = 2., m_tl = :EQUAL,
         # resource
@@ -82,14 +82,12 @@ struct Init_values
 
         ## run values
         runs = 1,
-        time_steps = 100,
-        pre_change = 10,
-        post_change = 10,
+        pre_post_change = 10,
         print_steps = 10,
         log_steps = 10,
         output_file = "output_evolving_foodweb.csv"
         )
-        return new(grid, torus, env_range, env_step_CC, env_step_local, dt_env, m, rho, m_tl, resource, in_rate, out_rate, N, rep_type, trophic_levels, bm_offset, bm_power, d, d_power, uptake_pars, i_power, resource_conversion, resource_assimilation, assimilation_eff, scale_uptake, scale_assim, omega_e, trait_loci, mu, sigma_z, runs, time_steps, pre_change, post_change, print_steps, log_steps, output_file)
+        return new(grid, torus, env_range, env_step_CC, time_CC, env_step_local, dt_env, m, rho, m_tl, resource, in_rate, out_rate, N, rep_type, trophic_levels, bm_offset, bm_power, d, d_power, uptake_pars, i_power, resource_conversion, resource_assimilation, assimilation_eff, scale_uptake, scale_assim, omega_e, trait_loci, mu, sigma_z, runs, pre_post_change, print_steps, log_steps, output_file)
     end
 end
 
@@ -100,6 +98,7 @@ mutable struct Ecol_parameters
     torus::NamedTuple{(:X, :Y),Tuple{Symbol,Symbol}}
     env_range::NamedTuple{(:X, :Y),Tuple{Tuple{Float64, Float64},Tuple{Float64, Float64}}}
     env_step_CC::Float64
+    time_CC::Int
     env_step_local::Float64
     dt_env::Float64
     patches::Int
@@ -141,6 +140,7 @@ mutable struct Ecol_parameters
         torus = init.torus
         env_range = init.env_range
         env_step_CC = init.env_step_CC
+        time_CC = init.time_CC
         env_step_local = init.env_step_local
         dt_env = init.dt_env
         # dispersal
@@ -197,7 +197,7 @@ mutable struct Ecol_parameters
                 conversion_tl[tl] = assimilation_eff*(1-scale_assim*bodymass_tl[tl]^(-i_power)) * bodymass_tl[tl-1]/bodymass_tl[tl]
             end
         end
-        return new(grid, torus, env_range, env_step_CC, env_step_local, dt_env, patches, m, rho, m_tl, m_power, in_rate, out_rate, species, rep_type, trophic_levels, bodymass_tl, tl_species, bm_offset, bm_power, d, d_power, d_tl, uptake_pars, i_power, uptake_tl, resource_conversion, resource_assimilation, assimilation_eff, conversion_tl, scale_uptake, scale_assim)
+        return new(grid, torus, env_range, env_step_CC, time_CC, env_step_local, dt_env, patches, m, rho, m_tl, m_power, in_rate, out_rate, species, rep_type, trophic_levels, bodymass_tl, tl_species, bm_offset, bm_power, d, d_power, d_tl, uptake_pars, i_power, uptake_tl, resource_conversion, resource_assimilation, assimilation_eff, conversion_tl, scale_uptake, scale_assim)
     end
 end
 
@@ -345,7 +345,10 @@ struct Run
     output_file::String
 
     function Run(init::Init_values)
-        return new(init.runs, init.time_steps, init.pre_change, init.post_change, init.print_steps, init.log_steps, init.output_file)
+        pre_change = init.pre_post_change
+        post_change = init.pre_post_change
+        time_steps = pre_change + init.time_CC + post_change
+        return new(init.runs, time_steps, pre_change, post_change, init.print_steps, init.log_steps, init.output_file)
     end
 end
 
@@ -784,14 +787,26 @@ function fitness_var(patch::Patch, s)
 end
 
 function log_titles(f)
-    write(f, "grid_X;grid_Y;torus_X;torus_Y;patches;e_step;m;rho;nbr_loci;sigma_z;mu;omega_e;d;run;time;patch;X;Y;environment;resource;species;trophic_level;bodymass;mortality;N;biomass;genotype_mean;genotype_var;phenotype_mean;phenotype_var;fitness_mean;fitness_var\n")
+    write(f, 
+    "grid_X;grid_Y;torus_X;torus_Y;patches;m;rho;" * 
+    "e_step_CC;time_CC;e_step_local;" * 
+    "nbr_loci;sigma_z;mu;omega_e;d;" * 
+    "run;time;patch;X;Y;environment;resource;" * 
+    "species;trophic_level;bodymass;mortality;N;biomass;" * 
+    "genotype_mean;genotype_var;phenotype_mean;phenotype_var;fitness_mean;fitness_var\n")
 end
 
 function log_results(f, world::World, ecol::Ecol_parameters, evol::Evol_parameters, r, t)
     for p in 1:world.nbr_patches, s in 1:ecol.species
         patch = world.patches[p]
         tl = ecol.tl_species[s]
-        write(f, "$(ecol.grid.X);$(ecol.grid.Y);$(ecol.torus.X);$(ecol.torus.X);$(ecol.patches);$(ecol.env_step_CC);$(ecol.m);$(ecol.rho);$(evol.trait_loci);$(evol.sigma_z);$(evol.mu);$(evol.omega_e);$(ecol.d);$(r);$(t);$(p);$(world.patch_XY[1,p]);$(world.patch_XY[2,p]);$(patch.environment);$(patch.resource);$(s);$(tl);$(ecol.bodymass_tl[tl]);$(ecol.d_tl[tl]);$(patch.N_s[s]);$(ecol.bodymass_tl[tl]*patch.N_s[s]);$(genotype_mean(patch, s));$(genotype_var(patch, s));$(phenotype_mean(patch, s));$(phenotype_var(patch, s));$(fitness_mean(patch, s));$(fitness_var(patch, s))\n")
+        write(f, 
+        "$(ecol.grid.X);$(ecol.grid.Y);$(ecol.torus.X);$(ecol.torus.X);$(ecol.patches);$(ecol.m);$(ecol.rho);" *
+        "$(ecol.env_step_CC);$(ecol.time_CC);$(ecol.env_step_local);" * 
+        "$(evol.trait_loci);$(evol.sigma_z);$(evol.mu);$(evol.omega_e);$(ecol.d);" * 
+        "$(r);$(t);$(p);$(world.patch_XY[1,p]);$(world.patch_XY[2,p]);$(patch.environment);$(patch.resource);" * 
+        "$(s);$(tl);$(ecol.bodymass_tl[tl]);$(ecol.d_tl[tl]);$(patch.N_s[s]);$(ecol.bodymass_tl[tl]*patch.N_s[s]);" * 
+        "$(genotype_mean(patch, s));$(genotype_var(patch, s));$(phenotype_mean(patch, s));$(phenotype_var(patch, s));$(fitness_mean(patch, s));$(fitness_var(patch, s))\n")
     end
 end
 
