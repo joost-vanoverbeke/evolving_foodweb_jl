@@ -1,17 +1,20 @@
 
+include("evolving_foodweb_direct_method4.jl")
+
 init_X11_Y1_1tl = Init_values(;
     ## ecological input
     # patches
     grid = (X = 1, Y = 1),
     torus = (X = :NO, Y = :NO),
-    env_range = (X = (-0.5, 0.5), Y = (-0.05, 0.05)),
-    # env_step_CC = 0.0,
-    env_step_CC = 0.0001,
+    env_range = (X = (-0.001, 0.001), Y = (-0.1, 0.1)),
+#    env_step_CC = 0.0,
+#    time_CC = 0,
+    env_step_CC = 0.0004,
     time_CC = 1000,
-    env_step_local = 0.005,
+    env_step_local = 0.001,
     dt_env = 1.,
     # dispersal
-    m = 0.01,
+    m = 0.0,
     rho = 2.0,
     m_tl = :EQUAL,
     # resource
@@ -20,7 +23,7 @@ init_X11_Y1_1tl = Init_values(;
     out_rate = 0.1,
     # species
     N = 3000,
-    rep_type = :ASEXUAL,
+    rep_type = :SEXUAL,
     # trophic levels
     trophic_levels = 1,
     bm_offset = 1.,
@@ -38,18 +41,18 @@ init_X11_Y1_1tl = Init_values(;
     scale_assim = 0.,
 
     ## evolutionary input
-    omega_e = 0.5,
+    omega_e = 1.,
     trait_loci = 10,
     mu = 1e-4,
     # mu = 0.,
     sigma_z = 0.1,
 
     ## run input
-    runs = 1,
-    pre_post_change = 2000,
-    print_steps = 500,
+    runs = 10,
+    pre_post_change = 10000,
+    print_steps = 1000,
     log_steps = 100,
-    output_file = "results/output_X1_Y1_tl1_d2e-1_dp5e-1_stCC1e-4_tCC1e+3.csv"
+    output_file = "results/output_X1_Y4_tl1_loci10_oe1_d2e-1_dp5e-1_Yrange2e-1_stepLocal1e-3_sex_CC4e-4_1e3.csv"
 );
 
 # @exportAll()

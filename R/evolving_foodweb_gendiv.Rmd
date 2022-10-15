@@ -1,0 +1,326 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+##### libraries #####
+```{r libraries}
+
+library(tidyverse)
+library(magrittr)
+# library(ggpubr)
+# library(RColorBrewer)
+library(colorspace)
+
+```
+
+
+##### colors #####
+```{r colors}
+
+cbPalette <- c("#E69F00", # orange
+               "#56B4E9", # lightblue
+               "#009E73", # green
+               "#F0E442", # yellow
+               "#0072B2", # darkblue
+               "#D55E00", # red
+               "#CC79A7") # cyan
+
+```
+
+
+##### data #####
+
+```{r data single}
+
+data <- 
+  read_delim("../results/output_X1_Y3_tl1_loci10_oe5e-1_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_1e3.csv", delim = ";")
+
+data <- 
+  read_delim("../results/output_X1_Y3_tl2_loci10_oe5e-1_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_1e3.csv", delim = ";")
+
+data <- 
+  read_delim("../results/output_X1_Y3_tl3_loci10_oe5e-1_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_1e3.csv", delim = ";")
+
+data <- 
+  read_delim("../results/output_X1_Y3_tl3_loci10_oe5e-1_d2e-1_dp5e-1_resource250_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_1e3.csv", delim = ";")
+
+
+
+data <- 
+  read_delim("../results/output_X11_Y3_tl1_loci10_oe5e-1_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_1e3.csv", delim = ";")
+
+data <- 
+  read_delim("../results/output_X11_Y3_tl1_loci10_oe5e-1_d2e-1_dp5e-1_Yrange1e-1_stepLocal1e-3_sex_CC1e-4_2e3.csv", delim = ";")
+
+data <- 
+  read_delim("../results/output_X11_Y3_tl1_loci10_oe5e-1_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_2e3.csv", delim = ";")
+
+data <- 
+  read_delim("../results/output_X11_Y3_tl1_loci10_oe5e-1_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC1e-4_4e3.csv", delim = ";")
+
+data <- 
+  read_delim("../results/output_X11_Y3_tl1_loci10_mu5e-4_oe5e-1_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_2e3.csv", delim = ";")
+
+
+
+data <- 
+  read_delim("../results/output_X11_Y3_tl1_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_2e3.csv", delim = ";")
+
+data <- 
+  read_delim("../results/output_X11_Y3_tl1_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_1e3.csv", delim = ";")
+
+data <- 
+  read_delim("../results/output_X11_Y3_tl1_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_2e3.csv", delim = ";")
+
+data <- 
+  read_delim("../results/output_X11_Y3_tl1_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_1e3.csv", delim = ";")
+
+
+
+data <- 
+  read_delim("../results/output_test.csv", delim = ";")
+
+data <- 
+  read_delim("../results/output_test2.csv", delim = ";")
+
+data <- 
+  read_delim("../results/output_test3.csv", delim = ";")
+
+data <- 
+  read_delim("../results/output_test4.csv", delim = ";")
+
+data <- 
+  read_delim("../results/output_test5.csv", delim = ";")
+
+
+```
+
+
+```{r data group}
+
+# data <- 
+#   read_delim("../results/output_X1_Y1_tl1_loci20_oe1_d2e-1_dp5e-1_Yrange2e-1_stepLocal1e-4_sex_CC4e-4_1e3.csv", 
+#              delim = ";") %>% 
+#   bind_rows(read_delim("../results/output_X1_Y1_tl1_loci20_oe1_d2e-1_dp5e-1_Yrange2e-1_stepLocal2e-4_sex_CC4e-4_1e3.csv", 
+#                        delim = ";")) %>% 
+#   bind_rows(read_delim("../results/output_X1_Y1_tl1_loci20_oe1_d2e-1_dp5e-1_Yrange2e-1_stepLocal5e-4_sex_CC4e-4_1e3.csv", 
+#                        delim = ";")) %>% 
+#   bind_rows(read_delim("../results/output_X1_Y1_tl1_loci20_oe1_d2e-1_dp5e-1_Yrange2e-1_stepLocal1e-3_sex_CC4e-4_1e3.csv", 
+#                        delim = ";")) %>% 
+#   bind_rows(read_delim("../results/output_X1_Y1_tl1_loci20_oe1_d2e-1_dp5e-1_Yrange2e-1_stepLocal2e-3_sex_CC4e-4_1e3.csv", 
+#                        delim = ";")) %>% 
+#   bind_rows(read_delim("../results/output_X1_Y1_tl1_loci20_oe1_d2e-1_dp5e-1_Yrange2e-1_stepLocal5e-3_sex_CC4e-4_1e3.csv", 
+#                        delim = ";")) %>% 
+#   bind_rows(read_delim("../results/output_X1_Y1_tl1_loci10_oe1_d2e-1_dp5e-1_Yrange2e-1_stepLocal1e-4_sex_CC4e-4_1e3.csv", 
+#                        delim = ";")) %>% 
+#   bind_rows(read_delim("../results/output_X1_Y1_tl1_loci10_oe1_d2e-1_dp5e-1_Yrange2e-1_stepLocal2e-4_sex_CC4e-4_1e3.csv", 
+#                        delim = ";")) %>% 
+#   bind_rows(read_delim("../results/output_X1_Y1_tl1_loci10_oe1_d2e-1_dp5e-1_Yrange2e-1_stepLocal5e-4_sex_CC4e-4_1e3.csv", 
+#                        delim = ";")) %>% 
+#   bind_rows(read_delim("../results/output_X1_Y1_tl1_loci10_oe1_d2e-1_dp5e-1_Yrange2e-1_stepLocal1e-3_sex_CC4e-4_1e3.csv", 
+#                        delim = ";")) %>% 
+#   bind_rows(read_delim("../results/output_X1_Y1_tl1_loci10_oe1_d2e-1_dp5e-1_Yrange2e-1_stepLocal2e-3_sex_CC4e-4_1e3.csv", 
+#                        delim = ";")) %>% 
+#   bind_rows(read_delim("../results/output_X1_Y1_tl1_loci10_oe1_d2e-1_dp5e-1_Yrange2e-1_stepLocal5e-3_sex_CC4e-4_1e3.csv", 
+#                        delim = ";"))
+
+data <- 
+  read_delim("../results/output_X1_Y3_tl1_loci10_oe5e-1_d2e-1_dp5e-1_Yrange1e-1_stepLocal5e-4_sex_CC2e-4_1e3.csv", 
+             delim = ";") %>% 
+  bind_rows(read_delim("../results/output_X1_Y3_tl1_loci10_oe5e-1_d2e-1_dp5e-1_Yrange1e-1_stepLocal1e-3_sex_CC2e-4_1e3.csv", 
+                       delim = ";")) %>% 
+  bind_rows(read_delim("../results/output_X1_Y3_tl1_loci10_oe5e-1_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_1e3.csv", 
+                       delim = ";"))
+
+```
+
+
+```{r calculations}
+
+tls <- max(data$trophic_level)  
+nX <- max(data$X)
+nY <- max(data$Y)
+
+data <- 
+  data %>% 
+  mutate(delta_gtp = abs(genotype_mean - environment),
+         origin = (species+tls-1)%/%tls,
+         origin_X = ((origin-1)%%nX)+1,
+         origin_Y = ((origin-1)%/%nX)+1,
+         origin = ordered(origin),
+         origin_X = ordered(origin_X),
+         origin_Y = ordered(origin_Y),
+         e_step_local = ordered(e_step_local),
+         nbr_loci = ordered(nbr_loci),
+         omega_e = ordered(omega_e),
+         run = ordered(run),
+         patch = ordered(patch),
+         X = ordered(X),
+         Y = ordered(Y),
+         species = ordered(species),
+         trophic_level = ordered(trophic_level))
+
+# data_origin <-
+#   data %>% 
+#   distinct(species, trophic_level, origin, origin_X, origin_Y)
+
+data_mean <- 
+  data %>% 
+  filter(N > 1) %>% 
+  group_by(grid_X, grid_Y, m, rho, e_step_CC, e_step_local, time_CC, nbr_loci, sigma_z, mu, omega_e, d, rep_type, species, time) %>% 
+  summarise(across(c(genotype_var, fitness_mean, fitness_var, delta_gtp), ~mean(.))) %>% 
+  ungroup()
+
+data_filt <-
+  data
+
+data_filt_mean <-
+  data_mean
+
+```
+
+
+```{r filtering}
+
+data_filt <-
+  data %>% 
+  filter(nbr_loci == 10)
+
+data_filt_mean <-
+  data_mean %>% 
+  filter(nbr_loci == 10)
+
+```
+
+
+##### plots #####
+
+```{r plots density}
+
+for(r in levels(data_filt$run)) {
+  data_filt %>% 
+    filter(run == r) %>%
+    {ggplot(., aes(x = time)) +
+        geom_line(aes(y = N, color = species), linetype = 1, size = 1) +
+        scale_color_discrete_qualitative() +
+        # scale_y_log10() +
+        # facet_grid(Y ~ X, labeller = "label_both") +
+        facet_grid(X ~ Y, labeller = "label_both") +
+        ggtitle(str_c("Run ", r)) +
+        guides(color = "none")} %>% 
+    print()
+}
+
+for(r in levels(data_filt$run)) {
+  data_filt %>% 
+    filter(run == r) %>%
+    {ggplot(., aes(x = time)) +
+        geom_line(aes(y = biomass, color = species), linetype = 1, size = 1) +
+        scale_color_discrete_qualitative() +
+        scale_y_log10() +
+        # facet_grid(Y ~ X, labeller = "label_both") +
+        facet_grid(X ~ Y, labeller = "label_both") +
+        ggtitle(str_c("Run ", r)) +
+        guides(color = "none")} %>% 
+    print()
+}
+
+```
+
+
+```{r plots genetic runs}
+
+for(r in levels(data_filt$run)) {
+  data_filt %>% 
+    filter(run == r) %>%
+    {ggplot(., aes(x = time)) +
+        geom_line(aes(y = genotype_mean, color = species), linetype = 1, size = 1) +
+        geom_line(aes(y = environment), color = "gray", linetype = 2, size = 1.5, alpha = 0.5) +
+        scale_color_discrete_qualitative() +
+        facet_grid(Y ~ X, labeller = "label_both") +
+        # facet_grid(X ~ Y, labeller = "label_both") +
+        ggtitle(str_c("Run ", r)) +
+        guides(color = "none")} %>% 
+    print()
+}
+
+for(r in levels(data_filt$run)) {
+  data_filt %>% 
+    filter(run == r,
+           time > 1000) %>%
+    {ggplot(., aes(x = time)) +
+        geom_line(aes(y = sqrt(genotype_var), color = species), linetype = 1, size = 1) +
+        scale_color_discrete_qualitative() +
+        facet_grid(Y ~ X, labeller = "label_both") +
+        # facet_grid(X ~ Y, labeller = "label_both") +
+        ggtitle(str_c("Run ", r)) +
+        guides(color = "none")} %>% 
+    print()
+}
+
+for(r in levels(data_filt$run)) {
+  data_filt %>% 
+    filter(run == r,
+           time > 1000) %>%
+    {ggplot(., aes(x = time)) +
+        geom_line(aes(y = delta_gtp, color = species), linetype = 1, size = 1) +
+        scale_color_discrete_qualitative() +
+        facet_grid(Y ~ X, labeller = "label_both") +
+        # facet_grid(e_step_local ~ omega_e, labeller = "label_both") +
+        # facet_wrap( ~ e_step_local, labeller = "label_both") +
+        ggtitle(str_c("Run ", r)) +
+        guides(color = "none")} %>% 
+    print()
+}
+
+```
+
+
+```{r plots genetic mean}
+
+data_filt_mean %>% 
+  filter(time > 1000) %>%
+  ggplot(aes(x = time)) +
+  geom_line(aes(y = sqrt(genotype_var), color = species, linetype = species), size = 1) +
+  scale_color_discrete_qualitative()
+
+
+data_filt_mean %>% 
+  filter(time > 1000) %>% 
+  ggplot(aes(x = time)) +
+  geom_line(aes(y = fitness_mean, color = species, linetype = species), size = 1) +
+  scale_color_discrete_qualitative()
+
+
+data_filt_mean %>% 
+  filter(time > 1000) %>% 
+  ggplot(aes(x = time)) +
+  geom_line(aes(y = sqrt(fitness_var), color = species, linetype = species), size = 1) +
+  scale_color_discrete_qualitative()
+
+data_filt_mean %>% 
+  filter(time > 1000) %>% 
+  ggplot(aes(x = time)) +
+  geom_line(aes(y = delta_gtp, color = species, linetype = species), size = 1) +
+  scale_color_discrete_qualitative()
+
+```
+
+
+
+
+
+```{r pop density}
+
+mean_N <- 
+  data_filt %>% 
+  filter(time > 1000) %>% 
+  group_by(species, trophic_level) %>% 
+  summarise(N = mean(N))
+mean_N
+
+```
+

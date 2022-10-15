@@ -1,6 +1,11 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
 
 
-##### libraries #####
+```{r libraries}
 
 library(tidyverse)
 library(magrittr)
@@ -8,7 +13,10 @@ library(magrittr)
 # library(RColorBrewer)
 library(colorspace)
 
-##### colors #####
+```
+
+
+```{r colors}
 
 cbPalette <- c("#E69F00", # orange
                "#56B4E9", # lightblue
@@ -18,7 +26,10 @@ cbPalette <- c("#E69F00", # orange
                "#D55E00", # red
                "#CC79A7") # cyan
 
-##### data #####
+```
+
+
+```{r data}
 
 data <- 
   read_delim("../results/output_X11_Y3_tl1_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_2e3.csv", 
@@ -31,7 +42,10 @@ data <-
                        delim = ";")) %>% 
   mutate(scenario = str_c(e_step_CC, time_CC, sep = "_")) 
 
+```
 
+
+```{r calculations}
 
 tls <- max(data$trophic_level)  
 nX <- max(data$X)
@@ -118,23 +132,15 @@ data_div <-
   group_by(scenario, mu, time) %>%
   # group_by(mu, time) %>% 
   summarise(across(.fns = ~mean(.))) %>% 
-  ungroup()
+  ungroup() %>% 
+  mutate(mu = ordered(mu))
 
 # analysis shift from origin
 
+```
 
-##### plots #####
 
-data %>%
-  filter(run == 1) %>%
-  filter(evolution == "evolution",
-         scenario == "noCC") %>% 
-  ggplot(aes(time, environment)) +
-  geom_line(aes(linetype = Y), size = 1) +
-  scale_color_discrete_qualitative() +
-  facet_wrap( ~ X, labeller = "label_both", nrow = 1) +
-  guides(color = FALSE, linetype = FALSE)
-
+```{r plots}
 
 data_div_alpha %>% 
   ggplot(aes(time, alpha_div_N)) +
@@ -154,15 +160,11 @@ data_div %>%
   mutate(level = str_remove(level, "_div_N")) %>% 
   ggplot(aes(time, div_N, color = level)) +
   geom_line(aes(linetype = level), size = 1) +
-  # geom_vline(aes(xintercept = 2500), size = 1, linetype = 2, color = "grey") +
-  # geom_vline(aes(xintercept = 3500), size = 1, linetype = 2, color = "grey") +
-  # geom_vline(aes(xintercept = 2000), size = 1, linetype = 2, color = "grey") +
-  # geom_vline(aes(xintercept = 4000), size = 1, linetype = 2, color = "grey") +
   facet_grid(scenario ~ mu, labeller = "label_both")
 
 data_div %>% 
   select(scenario, mu, time, contains("div_N")) %>% 
-  filter(time == max(time)) %>% 
+  filter(time == 11000) %>% 
   pivot_longer(cols = contains("div_N"),
                names_to = "level",
                values_to = "div_N") %>% 
@@ -174,7 +176,7 @@ data_div %>%
 
 data_div %>% 
   select(scenario, mu, time, contains("div_N")) %>% 
-  filter(time == max(time)) %>% 
+  filter(time == 11000) %>% 
   pivot_longer(cols = contains("div_N"),
                names_to = "level",
                values_to = "div_N") %>% 
@@ -183,4 +185,6 @@ data_div %>%
   geom_col() +
   facet_grid(level ~ scenario, labeller = "label_both") +
   scale_x_discrete(labels = NULL)
+
+```
 

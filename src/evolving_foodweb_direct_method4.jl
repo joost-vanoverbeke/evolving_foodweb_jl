@@ -175,7 +175,8 @@ mutable struct Ecol_parameters
         m_power = m_tl == :DECR ? -0.25 : (m_tl == :INCR ? 0.25 : 0.)
         in_rate = in_rate*scale_uptake
         uptake_pars[1] /= scale_uptake
-        species = patches*trophic_levels
+        species = grid.X*trophic_levels # different species for different X
+        # species = patches*trophic_levels # different species in each patch
         # species = 1
         tl_species = [(s - 1) % trophic_levels + 1 for s = 1:species]
         bodymass_tl = [bm_offset*10^((l - 1)*bm_power) for l = 1:trophic_levels]
@@ -355,6 +356,8 @@ end
 
 mutable struct Patch
     patch_ID::Int
+    X::Int
+    Y::Int
     environment::Float64
     resource::Float64
     species_ID::Vector{Vector{Int}}
@@ -373,7 +376,7 @@ mutable struct Patch
     loss_tl::Vector{Float64}
     mort_max_s::Vector{Float64}
 
-    function Patch(ecol::Ecol_parameters, id = 1, r = 0., e = 0.)
+    function Patch(ecol::Ecol_parameters, id = 1, X = 1, Y = 1, r = 0., e = 0.)
         patch_ID = id
         environment = e
         resource = r
@@ -391,7 +394,7 @@ mutable struct Patch
         gain_tl = zeros(ecol.species)
         loss_tl = zeros(ecol.species)
         mort_max_s = [N_s[s] > 0 ? maximum(morts[s]) : 0 for s in 1:ecol.species]
-        return new(patch_ID, environment, resource, species_ID, genotype, phenotype, fitness, mortality, N_s, N_tl, total_N, total_uptake, resource_gain, resource_loss, gain_tl, loss_tl, mort_max_s)
+        return new(patch_ID, X, Y, environment, resource, species_ID, genotype, phenotype, fitness, mortality, N_s, N_tl, total_N, total_uptake, resource_gain, resource_loss, gain_tl, loss_tl, mort_max_s)
     end
 end
 
@@ -506,14 +509,18 @@ function push_individual!(patch::Patch, parent_patch::Patch, ecol::Ecol_paramete
 end
 
 function populate_patch(patch::Patch, ecol::Ecol_parameters, evol::Evol_parameters, N)
-    prob_species = [(((s - 1) ÷ (ecol.species / ecol.patches) == (patch.patch_ID - 1) ? 1 : 0) /
-        ecol.bodymass_tl[ecol.tl_species[s]]) ^ (1) for s in 1:ecol.species]
-    # prob_species = [1 /
-    #     ecol.bodymass_tl[ecol.tl_species[s]] for s in 1:ecol.species]
-    s_id = wsample(1:ecol.species, prob_species, N)
-    for i in 1:N
-        push_individual!(patch, ecol, evol, s_id[i])
-    end
+    # if patch.X == 6
+        prob_species = [(((s - 1) ÷ (ecol.species / ecol.grid.X) == (patch.X - 1) ? 1 : 0) /
+            ecol.bodymass_tl[ecol.tl_species[s]]) ^ (1) for s in 1:ecol.species] # probabilities for different species per X
+            # prob_species = [(((s - 1) ÷ (ecol.species / ecol.patches) == (patch.patch_ID - 1) ? 1 : 0) /
+            # ecol.bodymass_tl[ecol.tl_species[s]]) ^ (1) for s in 1:ecol.species] # probabilities for different species per patch
+        # prob_species = [1 /
+        #     ecol.bodymass_tl[ecol.tl_species[s]] for s in 1:ecol.species]
+        s_id = wsample(1:ecol.species, prob_species, N)
+        for i in 1:N
+            push_individual!(patch, ecol, evol, s_id[i])
+        end
+    # end
 end
 
 function remove_individual!(patch::Patch, ecol::Ecol_parameters, s::Int, i)
@@ -645,7 +652,7 @@ mutable struct World
         env_X = ecol.env_range.X[1] .+ step_X .* ((1:grid.X) .- 1)
         init_environment = [env_X[patch_XY[1, p]] + ecol.env_range.Y[1] + rand() * range_Y for p = 1:nbr_patches]
 
-        patches = [Patch(ecol, p, init.resource, init_environment[p]) for p in 1:nbr_patches];
+        patches = [Patch(ecol, p, patch_XY[1, p], patch_XY[2, p], init.resource, init_environment[p]) for p in 1:nbr_patches];
         for p in 1:nbr_patches
             populate_patch(patches[p], ecol, evol, Int(init.N*ecol.scale_uptake))
         end
@@ -664,6 +671,14 @@ function calc_m_neighbours(world::World, ecol::Ecol_parameters)
         for i = 1:world.nbr_patches, j = 1:world.nbr_patches, c = 1:ecol.trophic_levels
     ]
     world.cs_m_neighbours = cumsum(world.m_neighbours; dims = 1)
+end
+
+function get_patch_X(world::World, p::Int)
+    return world.patch_XY[1, p]
+end
+
+function get_patch_Y(world::World, p::Int)
+    return world.patch_XY[2, p]
 end
 
 function change_environment_CC(world::World, ecol::Ecol_parameters)
@@ -790,7 +805,7 @@ function log_titles(f)
     write(f, 
     "grid_X;grid_Y;torus_X;torus_Y;patches;m;rho;" * 
     "e_step_CC;time_CC;e_step_local;" * 
-    "nbr_loci;sigma_z;mu;omega_e;d;" * 
+    "nbr_loci;sigma_z;mu;omega_e;d;rep_type;" * 
     "run;time;patch;X;Y;environment;resource;" * 
     "species;trophic_level;bodymass;mortality;N;biomass;" * 
     "genotype_mean;genotype_var;phenotype_mean;phenotype_var;fitness_mean;fitness_var\n")
@@ -803,7 +818,7 @@ function log_results(f, world::World, ecol::Ecol_parameters, evol::Evol_paramete
         write(f, 
         "$(ecol.grid.X);$(ecol.grid.Y);$(ecol.torus.X);$(ecol.torus.X);$(ecol.patches);$(ecol.m);$(ecol.rho);" *
         "$(ecol.env_step_CC);$(ecol.time_CC);$(ecol.env_step_local);" * 
-        "$(evol.trait_loci);$(evol.sigma_z);$(evol.mu);$(evol.omega_e);$(ecol.d);" * 
+        "$(evol.trait_loci);$(evol.sigma_z);$(evol.mu);$(evol.omega_e);$(ecol.d);$(ecol.rep_type);" * 
         "$(r);$(t);$(p);$(world.patch_XY[1,p]);$(world.patch_XY[2,p]);$(patch.environment);$(patch.resource);" * 
         "$(s);$(tl);$(ecol.bodymass_tl[tl]);$(ecol.d_tl[tl]);$(patch.N_s[s]);$(ecol.bodymass_tl[tl]*patch.N_s[s]);" * 
         "$(genotype_mean(patch, s));$(genotype_var(patch, s));$(phenotype_mean(patch, s));$(phenotype_var(patch, s));$(fitness_mean(patch, s));$(fitness_var(patch, s))\n")
