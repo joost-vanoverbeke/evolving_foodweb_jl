@@ -4,7 +4,7 @@ include("evolving_foodweb_direct_method4.jl")
 init_X11_Y1_1tl = Init_values(;
     ## ecological input
     # patches
-    grid = (X = 11, Y = 3),
+    grid = (X = 11, Y = 4),
     torus = (X = :NO, Y = :YES),
     env_range = (X = (-1, 1), Y = (-0.05, 0.05)),
 #    env_step_CC = 0.0,
@@ -23,6 +23,7 @@ init_X11_Y1_1tl = Init_values(;
     out_rate = 0.1,
     # species
     N = 1000,
+    spec_dist = :PATCH,
     rep_type = :SEXUAL,
     # trophic levels
     trophic_levels = 1,
@@ -52,7 +53,7 @@ init_X11_Y1_1tl = Init_values(;
     pre_post_change = 5000,
     print_steps = 1000,
     log_steps = 100,
-    output_file = "results/output_X11_Y3_tl1_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_1e3.csv"
+    output_file = "results/output_X11_Y4_tl1_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv"
 );
 
 # @exportAll()

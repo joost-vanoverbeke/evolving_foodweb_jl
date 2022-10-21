@@ -41,7 +41,7 @@ init_values = Init_values(;
     scale_assim = 0.,
 
     ## evolutionary input
-    omega_e = 0.5,
+    omega_e = 0.25,
     trait_loci = 10,
     mu = 1e-4,
     # mu = 0.,

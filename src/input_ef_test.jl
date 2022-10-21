@@ -4,7 +4,7 @@
 init_values = Init_values(;
     ## ecological input
     # patches
-    grid = (X = 11, Y = 3),
+    grid = (X = 2, Y = 2),
     torus = (X = :NO, Y = :YES),
     env_range = (X = (-1, 1), Y = (-0.05, 0.05)),
    env_step_CC = 0.0,
@@ -23,9 +23,10 @@ init_values = Init_values(;
     out_rate = 0.1,
     # species
     N = 3000,
+    spec_dist = :PATCH,
     rep_type = :SEXUAL,
     # trophic levels
-    trophic_levels = 1,
+    trophic_levels = 3,
     bm_offset = 1.,
     bm_power = 1.,
     # mortality
@@ -49,10 +50,10 @@ init_values = Init_values(;
 
     ## run input
     runs = 1,
-    pre_post_change = 2000,
-    print_steps = 1000,
+    pre_post_change = 100,
+    print_steps = 100,
     log_steps = 100,
-    output_file = "results/output_test2.csv"
+    output_file = "results/output_test.csv"
 );
 
 # @exportAll()

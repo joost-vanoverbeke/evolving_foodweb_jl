@@ -29,6 +29,7 @@ struct Init_values
     out_rate::Float64
     # species
     N::Int
+    spec_dist::Symbol
     rep_type::Symbol
     # trophic levels
     trophic_levels::Int
@@ -69,7 +70,7 @@ struct Init_values
         # resource
         resource = 200., in_rate = 200., out_rate = 0.1,
         # species
-        N = 10000, rep_type = :ASEXUAL,
+        N = 10000, spec_dist = :X, rep_type = :ASEXUAL,
         # trophic levels
         trophic_levels = 3, bm_offset = 1., bm_power = 1.,
         # mortality
@@ -87,7 +88,7 @@ struct Init_values
         log_steps = 10,
         output_file = "output_evolving_foodweb.csv"
         )
-        return new(grid, torus, env_range, env_step_CC, time_CC, env_step_local, dt_env, m, rho, m_tl, resource, in_rate, out_rate, N, rep_type, trophic_levels, bm_offset, bm_power, d, d_power, uptake_pars, i_power, resource_conversion, resource_assimilation, assimilation_eff, scale_uptake, scale_assim, omega_e, trait_loci, mu, sigma_z, runs, pre_post_change, print_steps, log_steps, output_file)
+        return new(grid, torus, env_range, env_step_CC, time_CC, env_step_local, dt_env, m, rho, m_tl, resource, in_rate, out_rate, N, spec_dist, rep_type, trophic_levels, bm_offset, bm_power, d, d_power, uptake_pars, i_power, resource_conversion, resource_assimilation, assimilation_eff, scale_uptake, scale_assim, omega_e, trait_loci, mu, sigma_z, runs, pre_post_change, print_steps, log_steps, output_file)
     end
 end
 
@@ -175,9 +176,12 @@ mutable struct Ecol_parameters
         m_power = m_tl == :DECR ? -0.25 : (m_tl == :INCR ? 0.25 : 0.)
         in_rate = in_rate*scale_uptake
         uptake_pars[1] /= scale_uptake
-        species = grid.X*trophic_levels # different species for different X
-        # species = patches*trophic_levels # different species in each patch
-        # species = 1
+        if init.spec_dist == :X
+            species = grid.X*trophic_levels # different species for different X
+        else
+            species = patches*trophic_levels # different species in each patch
+            # species = 1
+        end
         tl_species = [(s - 1) % trophic_levels + 1 for s = 1:species]
         bodymass_tl = [bm_offset*10^((l - 1)*bm_power) for l = 1:trophic_levels]
         d_tl = d .* bodymass_tl.^d_power
@@ -508,14 +512,17 @@ function push_individual!(patch::Patch, parent_patch::Patch, ecol::Ecol_paramete
     push_individual!(patch, ecol, evol, s, genotype)
 end
 
-function populate_patch(patch::Patch, ecol::Ecol_parameters, evol::Evol_parameters, N)
+function populate_patch(patch::Patch, ecol::Ecol_parameters, evol::Evol_parameters, N, spec_dist::Symbol)
     # if patch.X == 6
+    if spec_dist == :X
         prob_species = [(((s - 1) ÷ (ecol.species / ecol.grid.X) == (patch.X - 1) ? 1 : 0) /
             ecol.bodymass_tl[ecol.tl_species[s]]) ^ (1) for s in 1:ecol.species] # probabilities for different species per X
-            # prob_species = [(((s - 1) ÷ (ecol.species / ecol.patches) == (patch.patch_ID - 1) ? 1 : 0) /
-            # ecol.bodymass_tl[ecol.tl_species[s]]) ^ (1) for s in 1:ecol.species] # probabilities for different species per patch
+    else
+        prob_species = [(((s - 1) ÷ (ecol.species / ecol.patches) == (patch.patch_ID - 1) ? 1 : 0) /
+            ecol.bodymass_tl[ecol.tl_species[s]]) ^ (1) for s in 1:ecol.species] # probabilities for different species per patch
         # prob_species = [1 /
         #     ecol.bodymass_tl[ecol.tl_species[s]] for s in 1:ecol.species]
+    end
         s_id = wsample(1:ecol.species, prob_species, N)
         for i in 1:N
             push_individual!(patch, ecol, evol, s_id[i])
@@ -654,7 +661,7 @@ mutable struct World
 
         patches = [Patch(ecol, p, patch_XY[1, p], patch_XY[2, p], init.resource, init_environment[p]) for p in 1:nbr_patches];
         for p in 1:nbr_patches
-            populate_patch(patches[p], ecol, evol, Int(init.N*ecol.scale_uptake))
+            populate_patch(patches[p], ecol, evol, Int(init.N*ecol.scale_uptake), init.spec_dist)
         end
         return new(nbr_patches, patch_XY, env_X, patches, neighbours, m_neighbours, cs_m_neighbours)
     end

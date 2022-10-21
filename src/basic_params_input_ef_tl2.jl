@@ -23,6 +23,7 @@ init_values = Init_values(;
     out_rate = 0.1,
     # species
     N = 3000,
+    spec_dist = :PATCH,
     rep_type = :SEXUAL,
     # trophic levels
     trophic_levels = 2,
@@ -41,7 +42,7 @@ init_values = Init_values(;
     scale_assim = 0.,
 
     ## evolutionary input
-    omega_e = 0.5,
+    omega_e = 0.25,
     trait_loci = 10,
     mu = 1e-4,
     # mu = 0.,
@@ -49,8 +50,8 @@ init_values = Init_values(;
 
     ## run input
     runs = 1,
-    pre_post_change = 2000,
-    print_steps = 1000,
+    pre_post_change = 1000,
+    print_steps = 500,
     log_steps = 100,
     output_file = "results/output_test5.csv"
 );

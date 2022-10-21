@@ -42,6 +42,20 @@ data <-
                        delim = ";")) %>% 
   mutate(scenario = str_c(e_step_CC, time_CC, sep = "_")) 
 
+data <- 
+  read_delim("../results/output_X11_Y4_tl1_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
+             delim = ";") %>% 
+  bind_rows(read_delim("../results/output_X11_Y4_tl1_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
+                       delim = ";")) %>% 
+  mutate(scenario = str_c(e_step_CC, time_CC, sep = "_")) 
+
+data <- 
+  read_delim("../results/output_X11_Y4_tl2_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
+             delim = ";") %>% 
+  bind_rows(read_delim("../results/output_X11_Y4_tl2_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
+                       delim = ";")) %>% 
+  mutate(scenario = str_c(e_step_CC, time_CC, sep = "_")) 
+
 ```
 
 
@@ -61,6 +75,7 @@ data <-
          origin_Y = ordered(origin_Y),
          species = ordered(species),
          trophic_level = ordered(trophic_level),
+         run = ordered(run),
          patch = ordered(patch),
          X = ordered(X),
          Y = ordered(Y))
@@ -74,7 +89,7 @@ data_div_alpha <-
   data %>% 
   mutate(run = ordered(run)) %>% 
   filter(N > 0) %>% 
-  group_by(scenario, mu, run, time, patch, X, Y) %>%
+  group_by(scenario, mu, run, time, patch, X, Y, trophic_level) %>%
   # group_by(mu, run, time, patch, X, Y) %>% 
   mutate(p_N = N/sum(N),
          p_biomass = biomass/sum(biomass)) %>%
@@ -83,7 +98,7 @@ data_div_alpha <-
   ungroup() %>% 
   mutate(# alpha_div_N = exp(alpha_H_N),
          alpha_div_biomass = exp(alpha_H_biomass)) %>%
-  group_by(scenario, mu, run, time) %>%
+  group_by(scenario, mu, run, time, trophic_level) %>%
   # group_by(mu, run, time) %>% 
   summarise(alpha_div_N = exp((-1/n())*sum(-alpha_H_N)),
             alpha_div_biomass = exp((-1/n())*sum(-alpha_H_biomass)),
@@ -98,12 +113,12 @@ data_div_gamma <-
   data %>% 
   mutate(run = ordered(run)) %>% 
   filter(N > 0) %>% 
-  group_by(scenario, mu, run, time, species) %>%
+  group_by(scenario, mu, run, time, species, trophic_level) %>%
   # group_by(mu, run, time, species) %>%
   summarise(N = sum(N),
             biomass = sum(biomass)) %>% 
   ungroup() %>% 
-  group_by(scenario, mu, run, time) %>%
+  group_by(scenario, mu, run, time, trophic_level) %>%
   # group_by(mu, run, time) %>%
   mutate(p_N = N/sum(N),
          p_biomass = biomass/sum(biomass)) %>%
@@ -112,7 +127,7 @@ data_div_gamma <-
   ungroup() %>% 
   mutate(gamma_div_N = exp(gamma_H_N),
          gamma_div_biomass = exp(gamma_H_biomass)) %>% 
-  group_by(scenario, mu, run, time) %>%
+  group_by(scenario, mu, run, time, trophic_level) %>%
   # group_by(mu, run, time) %>% 
   summarise(gamma_H_N = mean(gamma_H_N),
             gamma_H_biomass = mean(gamma_H_biomass),
@@ -129,62 +144,155 @@ data_div <-
          beta_div_N = gamma_div_N/alpha_div_N,
          beta_div_biomass = gamma_div_biomass/alpha_div_biomass) %>% 
   select(-run) %>% 
-  group_by(scenario, mu, time) %>%
+  group_by(scenario, mu, time, trophic_level) %>%
   # group_by(mu, time) %>% 
   summarise(across(.fns = ~mean(.))) %>% 
   ungroup() %>% 
   mutate(mu = ordered(mu))
 
 # analysis shift from origin
+data_shift <-
+  data %>% 
+  mutate(run = ordered(run)) %>% 
+  filter(N > 0) %>% 
+  mutate(X = as.numeric(as.character(X))) %>% 
+  group_by(scenario, mu, run, time, species, trophic_level) %>%
+  summarise(X_mean = mean(rep(X,N)),
+            X_spread = sqrt(var(rep(X,N)))) %>% 
+  ungroup() %>% 
+  group_by(scenario, mu, run, species, trophic_level) %>%
+  mutate(X_shift = abs(X_mean - X_mean[time == 0])) %>% 
+  ungroup() %>% 
+  group_by(scenario, mu, run, time, trophic_level) %>%
+  summarise(X_spread = mean(X_spread),
+            X_shift = mean(X_shift)) %>% 
+  ungroup()
+
+data_shift_mean <-
+  data_shift %>% 
+  group_by(scenario, mu, time, trophic_level) %>% 
+  summarise(across(c(X_spread, X_shift), mean)) %>% 
+  ungroup()
 
 ```
 
 
-```{r plots}
+```{r figuren density}
+
+for(r in levels(data$run)) {
+  for(tl in levels(data$trophic_level)) {
+    for(mut in unique(data$mu)) {
+      data %>% 
+        filter(time <= 1000,
+               run == r,
+               trophic_level == tl,
+               mu == mut) %>%
+        {ggplot(., aes(x = time)) +
+            geom_line(aes(y = N, color = species), linetype = 1, size = 1) +
+            scale_color_discrete_qualitative() +
+            # scale_y_log10() +
+            # facet_grid(Y ~ X, labeller = "label_both") +
+            facet_grid(X ~ Y, labeller = "label_both") +
+            ggtitle(str_c("Run ", r, "; trophic level ", tl)) +
+            guides(color = "none")} %>% 
+        print()
+    }
+  }
+}
+
+figs_dens <-
+  data %>% 
+  group_by(run, trophic_level, mu) %>% 
+  nest() %>% 
+  transmute(fig = map(data, 
+                      ~{ggplot(., aes(x = time)) +
+                          geom_line(aes(y = N, color = species), linetype = 1, size = 1) +
+                          scale_color_discrete_qualitative() +
+                          facet_grid(X ~ Y, labeller = "label_both") +
+                          ggtitle(str_c("Run ", r, "; trophic level ", tl)) +
+                          guides(color = "none")}))
+
+
+map(figs_dens$fig, print)
+
+```
+
+
+```{r figuren div}
 
 data_div_alpha %>% 
   ggplot(aes(time, alpha_div_N)) +
   geom_line(aes(color = run)) +
-  facet_grid(scenario ~ mu, labeller = "label_both")
+  facet_grid(trophic_level ~ mu, labeller = "label_both")
 
 data_div_gamma %>% 
   ggplot(aes(time, gamma_div_N)) +
   geom_line(aes(color = run)) +
-  facet_grid(scenario ~ mu, labeller = "label_both")
+  facet_grid(trophic_level ~ mu, labeller = "label_both")
 
 data_div %>% 
-  select(scenario, mu, time, contains("div_N")) %>% 
+  select(trophic_level, mu, time, contains("div_N")) %>% 
   pivot_longer(cols = contains("div_N"),
                names_to = "level",
                values_to = "div_N") %>% 
   mutate(level = str_remove(level, "_div_N")) %>% 
   ggplot(aes(time, div_N, color = level)) +
   geom_line(aes(linetype = level), size = 1) +
-  facet_grid(scenario ~ mu, labeller = "label_both")
+  facet_grid(trophic_level ~ mu, labeller = "label_both")
 
 data_div %>% 
-  select(scenario, mu, time, contains("div_N")) %>% 
+  select(trophic_level, mu, time, contains("div_N")) %>% 
   filter(time == 11000) %>% 
   pivot_longer(cols = contains("div_N"),
                names_to = "level",
                values_to = "div_N") %>% 
   mutate(level = str_remove(level, "_div_N")) %>% 
-  ggplot(aes(scenario, div_N, fill = scenario)) +
+  ggplot(aes(trophic_level, div_N, fill = trophic_level)) +
   geom_col() +
   facet_grid(mu ~ level, labeller = "label_both") +
   scale_x_discrete(labels = NULL)
 
 data_div %>% 
-  select(scenario, mu, time, contains("div_N")) %>% 
-  filter(time == 11000) %>% 
+  select(trophic_level, mu, time, contains("div_N")) %>% 
+  # filter(time == 11000) %>% 
+  filter(time == 5000 | time == max(time)) %>% 
   pivot_longer(cols = contains("div_N"),
                names_to = "level",
                values_to = "div_N") %>% 
-  mutate(level = str_remove(level, "_div_N")) %>% 
-  ggplot(aes(mu, div_N, fill = mu)) +
-  geom_col() +
-  facet_grid(level ~ scenario, labeller = "label_both") +
+  mutate(level = str_remove(level, "_div_N"),
+         time = ordered(time)) %>% 
+  ggplot(aes(time, div_N, fill = mu)) +
+  geom_col(position = "dodge") +
+  # scale_y_log10() +
+  facet_grid(level ~ trophic_level, labeller = "label_both", scales = "free_y") +
   scale_x_discrete(labels = NULL)
+
+```
+
+
+```{r figuren shift & spread}
+
+data_shift %>% 
+  ggplot(aes(time, X_shift)) +
+  geom_line(aes(color = run)) +
+  facet_grid(trophic_level ~ mu, labeller = "label_both")
+
+data_shift_mean %>% 
+  filter(time == max(time)) %>% 
+  ggplot(aes(ordered(mu), X_shift)) +
+  geom_col() +
+  facet_grid(trophic_level ~ scenario, labeller = "label_both")
+
+data_shift %>% 
+  ggplot(aes(time, X_spread)) +
+  geom_line(aes(color = run)) +
+  facet_grid(trophic_level ~ mu, labeller = "label_both")
+
+data_shift_mean %>% 
+  filter(time == max(time)) %>% 
+  ggplot(aes(ordered(mu), X_spread)) +
+  geom_col() +
+  facet_grid(trophic_level ~ scenario, labeller = "label_both")
 
 ```
 

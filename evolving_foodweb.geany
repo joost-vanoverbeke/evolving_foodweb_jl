@@ -28,8 +28,9 @@ long_line_behaviour=1
 long_line_column=72
 
 [files]
-current_page=0
-FILE_NAME_0=1629;None;0;EUTF-8;0;1;0;%2Fhome%2Fjoost%2FDocuments%2Ftmp.txt;0;4
+current_page=1
+FILE_NAME_0=463;None;0;EUTF-8;0;1;0;%2Fhome%2Fjoost%2FDocuments%2Ftmp.txt;0;4
+FILE_NAME_1=33;None;0;EUTF-8;0;1;0;%2Frun%2Fmedia%2Fjoost%2FWindows%2FUsers%2Fjoost%2FDropbox%2FSdrowssap%2FORCID%2FNew%20Text%20Document.txt;0;4
 
 [VTE]
 last_dir=/home/joost
