@@ -61,7 +61,31 @@ trof_model3_N <- function(t, state, parameters){
 }
 
 # params 3 trophic levels
-# # body mass
+# body mass
+bm1 <- 1
+bm2 <- 10
+bm3 <- 100
+
+# mortality
+x_0 = 0.2 #d
+pow_x = -0.5 #d_power #standard -0.25
+
+# ingestion
+a <- 1e-4
+h <- 0.4
+pw <- 0.75 #i_power #standard 0.75
+c <- 10 #resource_assimilation
+g <- 0.75 #assimilation efficiency #standard 0.7
+
+In <- 250 #in_rate
+Out <- 0.1 #out_rate
+c_conv <- 1 #resource conversion
+scale <- 2 #scale_uptake
+scale_ass <- 1 #scale_assim
+
+
+# params 2 trophic levels
+# body mass
 # bm1 <- 1
 # bm2 <- 10
 # bm3 <- 100
@@ -77,35 +101,11 @@ trof_model3_N <- function(t, state, parameters){
 # c <- 8 #resource_assimilation
 # g <- 0.8 #assimilation efficiency #standard 0.7
 # 
-# In <- 200 #in_rate
+# In <- 100 #in_rate
 # Out <- 0.1 #out_rate
-# # c_conv <- 1 #resource conversion
+# c_conv <- 1 #resource conversion
 # scale <- 2 #scale_uptake
 # scale_ass <- 0 #scale_assim
-
-
-# params 2 trophic levels
-# body mass
-bm1 <- 1
-bm2 <- 10
-bm3 <- 100
-
-# mortality
-x_0 = 0.2 #d
-pow_x = -0.5 #d_power #standard -0.25
-
-# ingestion
-a <- 1e-4
-h <- 0.4
-pw <- 0.65 #i_power #standard 0.75
-c <- 8 #resource_assimilation
-g <- 0.8 #assimilation efficiency #standard 0.7
-
-In <- 100 #in_rate
-Out <- 0.1 #out_rate
-c_conv <- 1 #resource conversion
-scale <- 2 #scale_uptake
-scale_ass <- 0 #scale_assim
 
 # parameters: a named vector
 # parameters_B <- c(In = In*scale, Out = Out,
@@ -138,7 +138,9 @@ parameters3_N <- c(In = In*scale, Out = Out,
                    a1 = a*bm1^(pw)/scale, h1 = h*bm1^(-pw)*c_conv,
                    a2 = a*bm2^(pw)/scale, h2 = h*(bm2^(-pw))*bm1,
                    a3 = a*bm3^(pw)/scale, h3 = h*(bm3^(-pw))*bm2,
-                   g1 = c/bm1, g2 = g*(1-scale_ass*bm2^(-pw))*bm1/bm2, g3 = g*(1-scale_ass*bm3^(-pw))*bm2/bm3)
+                   # g1 = (c^(scale_ass))/bm1, g2 = g*(bm1^(scale_ass))/bm2, g3 = g*(bm2^(scale_ass))/bm3)
+                   g1 = c/(bm1^(1/scale_ass)), g2 = g*bm1/(bm2^(1/scale_ass)), g3 = g*bm2/(bm3^(1/scale_ass)))
+# g1 = c/bm1, g2 = g*(1-scale_ass*bm2^(-pw))*bm1/bm2, g3 = g*(1-scale_ass*bm3^(-pw))*bm2/bm3)
 
 
 # time sequence
@@ -149,8 +151,8 @@ time <- seq(0, 1000, by = 0.1)
 # state1_N <- c(R = In*scale, N1 = 10000, N2 = 100, N3 = 100)
 # state2_N <- c(R = In*scale, N1 = 10000, N2 = 100, N3 = 100)
 
-# state3_N <- c(R = In*scale, N1 = 5000, N2 = 100, N3 = 50)
-state3_N <- c(R = In*scale, N1 = 5000, N2 = 0, N3 = 0)
+state3_N <- c(R = In*scale, N1 = 5000, N2 = 100, N3 = 50)
+# state3_N <- c(R = In*scale, N1 = 5000, N2 = 0, N3 = 0)
 
 # state_B <- c(R = In*3*scale, B1 = 80*bm1*scale, B2 = 200*bm2*scale, B3 = 2000*bm3*scale)
 # state1_N <- c(R = In*3*scale, N1 = 80*scale, N2 = 200*scale, N3 = 2000*scale)

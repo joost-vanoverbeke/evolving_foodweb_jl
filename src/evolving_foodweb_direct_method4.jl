@@ -197,9 +197,11 @@ mutable struct Ecol_parameters
         conversion_tl = zeros(trophic_levels)
         for tl in 1:trophic_levels
             if tl == 1
-                conversion_tl[tl] = resource_assimilation/bodymass_tl[tl]
+                # conversion_tl[tl] = resource_assimilation/bodymass_tl[tl]
+                conversion_tl[tl] = resource_assimilation/(bodymass_tl[tl]^(1/scale_assim))
             else
-                conversion_tl[tl] = assimilation_eff*(1-scale_assim*bodymass_tl[tl]^(-i_power)) * bodymass_tl[tl-1]/bodymass_tl[tl]
+                # conversion_tl[tl] = assimilation_eff*(1-scale_assim*bodymass_tl[tl]^(-i_power)) * bodymass_tl[tl-1]/bodymass_tl[tl]
+                conversion_tl[tl] = assimilation_eff * bodymass_tl[tl-1]/(bodymass_tl[tl]^(1/scale_assim))
             end
         end
         return new(grid, torus, env_range, env_step_CC, time_CC, env_step_local, dt_env, patches, m, rho, m_tl, m_power, in_rate, out_rate, species, rep_type, trophic_levels, bodymass_tl, tl_species, bm_offset, bm_power, d, d_power, d_tl, uptake_pars, i_power, uptake_tl, resource_conversion, resource_assimilation, assimilation_eff, conversion_tl, scale_uptake, scale_assim)
@@ -523,10 +525,10 @@ function populate_patch(patch::Patch, ecol::Ecol_parameters, evol::Evol_paramete
         # prob_species = [1 /
         #     ecol.bodymass_tl[ecol.tl_species[s]] for s in 1:ecol.species]
     end
-        s_id = wsample(1:ecol.species, prob_species, N)
-        for i in 1:N
-            push_individual!(patch, ecol, evol, s_id[i])
-        end
+    s_id = wsample(1:ecol.species, prob_species, N)
+    for i in 1:N
+        push_individual!(patch, ecol, evol, s_id[i])
+    end
     # end
 end
 
@@ -680,14 +682,6 @@ function calc_m_neighbours(world::World, ecol::Ecol_parameters)
     world.cs_m_neighbours = cumsum(world.m_neighbours; dims = 1)
 end
 
-function get_patch_X(world::World, p::Int)
-    return world.patch_XY[1, p]
-end
-
-function get_patch_Y(world::World, p::Int)
-    return world.patch_XY[2, p]
-end
-
 function change_environment_CC(world::World, ecol::Ecol_parameters)
     world.env_X .+= ecol.env_step_CC * ecol.dt_env
 end
@@ -826,7 +820,7 @@ function log_results(f, world::World, ecol::Ecol_parameters, evol::Evol_paramete
         "$(ecol.grid.X);$(ecol.grid.Y);$(ecol.torus.X);$(ecol.torus.X);$(ecol.patches);$(ecol.m);$(ecol.rho);" *
         "$(ecol.env_step_CC);$(ecol.time_CC);$(ecol.env_step_local);" * 
         "$(evol.trait_loci);$(evol.sigma_z);$(evol.mu);$(evol.omega_e);$(ecol.d);$(ecol.rep_type);" * 
-        "$(r);$(t);$(p);$(world.patch_XY[1,p]);$(world.patch_XY[2,p]);$(patch.environment);$(patch.resource);" * 
+        "$(r);$(t);$(p);$(patch.X);$(patch.Y);$(patch.environment);$(patch.resource);" * 
         "$(s);$(tl);$(ecol.bodymass_tl[tl]);$(ecol.d_tl[tl]);$(patch.N_s[s]);$(ecol.bodymass_tl[tl]*patch.N_s[s]);" * 
         "$(genotype_mean(patch, s));$(genotype_var(patch, s));$(phenotype_mean(patch, s));$(phenotype_var(patch, s));$(fitness_mean(patch, s));$(fitness_var(patch, s))\n")
     end

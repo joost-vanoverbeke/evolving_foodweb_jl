@@ -18,15 +18,15 @@ init_values = Init_values(;
     rho = 2.0,
     m_tl = :EQUAL,
     # resource
-    resource = 220.,
-    in_rate = 220.,
+    resource = 150.,
+    in_rate = 150.,
     out_rate = 0.1,
     # species
     N = 3000,
     spec_dist = :PATCH,
     rep_type = :SEXUAL,
     # trophic levels
-    trophic_levels = 2,
+    trophic_levels = 1,
     bm_offset = 1.,
     bm_power = 2.,
     # mortality
@@ -53,7 +53,7 @@ init_values = Init_values(;
     pre_post_change = 1000,
     print_steps = 1000,
     log_steps = 100,
-    output_file = "results/output_test2.csv"
+    output_file = "results/output_basic_tl1.csv"
 );
 
 # @exportAll()
