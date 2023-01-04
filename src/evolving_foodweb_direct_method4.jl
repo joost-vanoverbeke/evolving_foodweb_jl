@@ -6,7 +6,6 @@ using StatsBase
 using LinearAlgebra
 using Distributions
 using Statistics
-# using Profile
 
 # using ExportAll
 
@@ -268,9 +267,15 @@ function update_dm_patch(dm::Direct_method, ecol::Ecol_parameters, patch)
     p = patch.patch_ID
     gain = 0.
     loss = 0.
+    # dm.c_total -= dm.c_vec[dm.c_b_res_pos[p]]
+    # dm.c_total -= dm.c_vec[dm.c_d_res_pos[p]]
     dm.c_vec[dm.c_b_res_pos[p]] = dm.c_b_resource[p] = patch.resource_gain
     dm.c_vec[dm.c_d_res_pos[p]] = dm.c_d_resource[p] = patch.resource_loss
+    # dm.c_total += dm.c_vec[dm.c_b_res_pos[p]]
+    # dm.c_total += dm.c_vec[dm.c_d_res_pos[p]]
     for s in 1:ecol.species
+        # dm.c_total -= dm.c_vec[dm.c_b_ind_pos[s,p]]
+        # dm.c_total -= dm.c_vec[dm.c_d_ind_pos[s,p]]
         N_s = patch.N_s[s]
         if N_s > 0
             tl = ecol.tl_species[s]
@@ -284,6 +289,8 @@ function update_dm_patch(dm::Direct_method, ecol::Ecol_parameters, patch)
         dm.c_d_ind[s,p] = loss
         dm.c_vec[dm.c_b_ind_pos[s,p]] = gain*N_s
         dm.c_vec[dm.c_d_ind_pos[s,p]] = loss*N_s
+        # dm.c_total += dm.c_vec[dm.c_b_ind_pos[s,p]]
+        # dm.c_total += dm.c_vec[dm.c_d_ind_pos[s,p]]
     end
     dm.c_total = sum(dm.c_vec)
 end
@@ -399,7 +406,7 @@ mutable struct Patch
         resource_loss = 0.
         gain_tl = zeros(ecol.species)
         loss_tl = zeros(ecol.species)
-        mort_max_s = [N_s[s] > 0 ? maximum(morts[s]) : 0 for s in 1:ecol.species]
+        mort_max_s = [N_s[s] > 0 ? maximum(mortality[s]) : 0 for s in 1:ecol.species]
         return new(patch_ID, X, Y, environment, resource, species_ID, genotype, phenotype, fitness, mortality, N_s, N_tl, total_N, total_uptake, resource_gain, resource_loss, gain_tl, loss_tl, mort_max_s)
     end
 end
@@ -699,6 +706,7 @@ function next_event(world::World, ecol::Ecol_parameters, evol::Evol_parameters, 
     event = false
     p = 0
     new_p = 0
+    tl = 0
     while !event
         dt += next_time(dm)
         smpl_event, s, p = sample_c(dm, ecol)
@@ -709,7 +717,8 @@ function next_event(world::World, ecol::Ecol_parameters, evol::Evol_parameters, 
             event = decrease_resource(patch, dm)
         elseif smpl_event == :reproduction
             tl = ecol.tl_species[s]
-            event = rand() <= (patch.gain_tl[tl]/dm.c_b_ind[s, p])
+            # event = rand() <= (patch.gain_tl[tl]/dm.c_b_ind[s, p])
+            event = true
             if event
                 mother = rand(1:patch.N_s[s])
                 new_p = binary_search((@view world.cs_m_neighbours[:, p, tl]), rand())
@@ -817,7 +826,7 @@ function log_results(f, world::World, ecol::Ecol_parameters, evol::Evol_paramete
         patch = world.patches[p]
         tl = ecol.tl_species[s]
         write(f, 
-        "$(ecol.grid.X);$(ecol.grid.Y);$(ecol.torus.X);$(ecol.torus.X);$(ecol.patches);$(ecol.m);$(ecol.rho);" *
+        "$(ecol.grid.X);$(ecol.grid.Y);$(ecol.torus.X);$(ecol.torus.Y);$(ecol.patches);$(ecol.m);$(ecol.rho);" *
         "$(ecol.env_step_CC);$(ecol.time_CC);$(ecol.env_step_local);" * 
         "$(evol.trait_loci);$(evol.sigma_z);$(evol.mu);$(evol.omega_e);$(ecol.d);$(ecol.rep_type);" * 
         "$(r);$(t);$(p);$(patch.X);$(patch.Y);$(patch.environment);$(patch.resource);" * 
@@ -968,3 +977,4 @@ function evolving_foodweb_dm(init::Init_values)
     close(f)
     # return time, events, world, ecol, dm
 end
+
