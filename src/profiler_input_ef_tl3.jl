@@ -6,7 +6,7 @@ include("evolving_foodweb_direct_method4.jl")
 init_values = Init_values(;
     ## ecological input
     # patches
-    grid = (X = 5, Y = 5),
+    grid = (X = 3, Y = 3),
     torus = (X = :NO, Y = :YES),
     env_range = (X = (-0.001, 0.001), Y = (-0.05, 0.05)),
    env_step_CC = 0.0,
