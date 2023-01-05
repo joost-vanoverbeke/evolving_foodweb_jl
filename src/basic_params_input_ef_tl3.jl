@@ -1,10 +1,10 @@
 
-# include("evolving_foodweb_direct_method4.jl")
+include("evolving_foodweb_direct_method4.jl")
 
 init_values = Init_values(;
     ## ecological input
     # patches
-    grid = (X = 1, Y = 5),
+    grid = (X = 3, Y = 3),
     torus = (X = :NO, Y = :YES),
     env_range = (X = (-0.001, 0.001), Y = (-0.05, 0.05)),
    env_step_CC = 0.0,
@@ -25,6 +25,8 @@ init_values = Init_values(;
     N = 3000,
     spec_dist = :PATCH,
     rep_type = :SEXUAL,
+    # species matching
+    match_sd = 100., 
     # trophic levels
     trophic_levels = 3,
     bm_offset = 1.,
@@ -50,9 +52,9 @@ init_values = Init_values(;
 
     ## run input
     runs = 1,
-    pre_post_change = 2500,
-    print_steps = 1000,
-    log_steps = 100,
+    pre_post_change = 100,
+    print_steps = 50,
+    log_steps = 50,
     output_file = "results/output_test3.csv"
 );
 

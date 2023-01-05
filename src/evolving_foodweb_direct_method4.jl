@@ -30,6 +30,8 @@ struct Init_values
     N::Int
     spec_dist::Symbol
     rep_type::Symbol
+    # species matching
+    match_sd::Float64
     # trophic levels
     trophic_levels::Int
     bm_offset::Float64
@@ -70,6 +72,8 @@ struct Init_values
         resource = 200., in_rate = 200., out_rate = 0.1,
         # species
         N = 10000, spec_dist = :X, rep_type = :ASEXUAL,
+        # species matching
+        match_sd = 1., 
         # trophic levels
         trophic_levels = 3, bm_offset = 1., bm_power = 1.,
         # mortality
@@ -87,7 +91,7 @@ struct Init_values
         log_steps = 10,
         output_file = "output_evolving_foodweb.csv"
         )
-        return new(grid, torus, env_range, env_step_CC, time_CC, env_step_local, dt_env, m, rho, m_tl, resource, in_rate, out_rate, N, spec_dist, rep_type, trophic_levels, bm_offset, bm_power, d, d_power, uptake_pars, i_power, resource_conversion, resource_assimilation, assimilation_eff, scale_uptake, scale_assim, omega_e, trait_loci, mu, sigma_z, runs, pre_post_change, print_steps, log_steps, output_file)
+        return new(grid, torus, env_range, env_step_CC, time_CC, env_step_local, dt_env, m, rho, m_tl, resource, in_rate, out_rate, N, spec_dist, rep_type, match_sd, trophic_levels, bm_offset, bm_power, d, d_power, uptake_pars, i_power, resource_conversion, resource_assimilation, assimilation_eff, scale_uptake, scale_assim, omega_e, trait_loci, mu, sigma_z, runs, pre_post_change, print_steps, log_steps, output_file)
     end
 end
 
@@ -117,6 +121,13 @@ mutable struct Ecol_parameters
     trophic_levels::Int
     bodymass_tl::Array{Float64, 1}
     tl_species::Vector{Int}
+
+    match_resource::Vector{Int}
+    species_match::Vector{Int}
+    match_sd::Float64
+    match_matr::Array{Float64, 2}
+    match_rel::Array{Float64, 2}
+
     bm_offset::Float64
     bm_power::Float64
     # mortality
@@ -156,6 +167,9 @@ mutable struct Ecol_parameters
         trophic_levels = init.trophic_levels
         bm_offset = init.bm_offset
         bm_power = init.bm_power
+
+        match_sd = init.match_sd
+    
         # mortality
         d = init.d
         d_power = init.d_power
@@ -182,6 +196,12 @@ mutable struct Ecol_parameters
             # species = 1
         end
         tl_species = [(s - 1) % trophic_levels + 1 for s = 1:species]
+
+        match_resource = [tl_species[s] == 1 ? 1 : 0 for s in 1:species]
+        species_match = [(s - 1) ÷ trophic_levels + 1 for s = 1:species]
+        match_matr = [tl_species[s1] == tl_species[s2] + 1 ? exp(-(species_match[s1] - species_match[s2])^2 / (2*match_sd^2)) : 0 for s1 in 1:species, s2 in 1:species]
+        match_rel = match_matr./[x == 0 ? 1 : x for x in sum(match_matr; dims=2)]
+        
         bodymass_tl = [bm_offset*10^((l - 1)*bm_power) for l = 1:trophic_levels]
         d_tl = d .* bodymass_tl.^d_power
         uptake_tl = zeros(trophic_levels, 2)
@@ -203,7 +223,7 @@ mutable struct Ecol_parameters
                 conversion_tl[tl] = assimilation_eff * bodymass_tl[tl-1]/(bodymass_tl[tl]^(1/scale_assim))
             end
         end
-        return new(grid, torus, env_range, env_step_CC, time_CC, env_step_local, dt_env, patches, m, rho, m_tl, m_power, in_rate, out_rate, species, rep_type, trophic_levels, bodymass_tl, tl_species, bm_offset, bm_power, d, d_power, d_tl, uptake_pars, i_power, uptake_tl, resource_conversion, resource_assimilation, assimilation_eff, conversion_tl, scale_uptake, scale_assim)
+        return new(grid, torus, env_range, env_step_CC, time_CC, env_step_local, dt_env, patches, m, rho, m_tl, m_power, in_rate, out_rate, species, rep_type, trophic_levels, bodymass_tl, tl_species, match_resource, species_match, match_sd, match_matr, match_rel, bm_offset, bm_power, d, d_power, d_tl, uptake_pars, i_power, uptake_tl, resource_conversion, resource_assimilation, assimilation_eff, conversion_tl, scale_uptake, scale_assim)
     end
 end
 
@@ -279,8 +299,8 @@ function update_dm_patch(dm::Direct_method, ecol::Ecol_parameters, patch)
         N_s = patch.N_s[s]
         if N_s > 0
             tl = ecol.tl_species[s]
-            gain = patch.gain_tl[tl]
-            loss = patch.loss_tl[tl] + patch.mort_max_s[s]
+            gain = patch.gain_s[s]
+            loss = patch.loss_s[s] + patch.mort_max_s[s]
         else
             gain = 0.
             loss = 0.
@@ -302,7 +322,7 @@ function update_dm_loss(dm::Direct_method, ecol::Ecol_parameters, patch)
         N_s = patch.N_s[s]
         if N_s > 0
             tl = ecol.tl_species[s]
-            loss = patch.loss_tl[tl] + patch.mort_max_s[s]
+            loss = patch.loss_s[s] + patch.mort_max_s[s]
         else
             loss = 0.
         end
@@ -385,8 +405,10 @@ mutable struct Patch
     total_uptake::Vector{Float64}
     resource_gain::Float64
     resource_loss::Float64
-    gain_tl::Vector{Float64}
-    loss_tl::Vector{Float64}
+    # gain_tl::Vector{Float64}
+    # loss_tl::Vector{Float64}
+    gain_s::Vector{Float64}
+    loss_s::Vector{Float64}
     mort_max_s::Vector{Float64}
 
     function Patch(ecol::Ecol_parameters, id = 1, X = 1, Y = 1, r = 0., e = 0.)
@@ -404,10 +426,12 @@ mutable struct Patch
         total_uptake = zeros(ecol.trophic_levels)
         resource_gain = 0.
         resource_loss = 0.
-        gain_tl = zeros(ecol.species)
-        loss_tl = zeros(ecol.species)
+        # gain_tl = zeros(ecol.trophic_levels)
+        # loss_tl = zeros(ecol.trophic_levels)
+        gain_s = zeros(ecol.species)
+        loss_s = zeros(ecol.species)
         mort_max_s = [N_s[s] > 0 ? maximum(mortality[s]) : 0 for s in 1:ecol.species]
-        return new(patch_ID, X, Y, environment, resource, species_ID, genotype, phenotype, fitness, mortality, N_s, N_tl, total_N, total_uptake, resource_gain, resource_loss, gain_tl, loss_tl, mort_max_s)
+        return new(patch_ID, X, Y, environment, resource, species_ID, genotype, phenotype, fitness, mortality, N_s, N_tl, total_N, total_uptake, resource_gain, resource_loss, gain_s, loss_s, mort_max_s)
     end
 end
 
@@ -567,22 +591,26 @@ function remove_individual!(patch::Patch, ecol::Ecol_parameters, s::Int, i)
 end
 
 function update_uptake(patch::Patch, ecol::Ecol_parameters, dm::Direct_method)
-    for tl in 1:ecol.trophic_levels
+    match_N = ecol.match_matr .* patch.N_s'
+    N_prey = sum(match_N; dims=2)
+    uptake = zeros(ecol.species)
+    for s in 1:ecol.species
+        tl = ecol.tl_species[s]
         if tl == 1
-            upt = ecol.uptake_tl[tl, 1]*patch.resource^ecol.uptake_pars[3]
+            upt = ecol.uptake_tl[tl, 1] * patch.resource^ecol.uptake_pars[3]
         else
-            upt = ecol.uptake_tl[tl, 1]*patch.N_tl[tl-1]^ecol.uptake_pars[3]
+            upt = ecol.uptake_tl[tl, 1] * N_prey[s]^ecol.uptake_pars[3]
         end
-        patch.total_uptake[tl] = upt/(1. + upt*ecol.uptake_tl[tl, 2])*patch.N_tl[tl]
+        uptake[s] = upt/(1. + upt*ecol.uptake_tl[tl, 2])
+        patch.gain_s[s] = uptake[s] * ecol.conversion_tl[tl]
     end
+    total_uptake = uptake .* patch.N_s
+    match_loss = total_uptake .* ecol.match_rel 
+    prey_loss = vec(sum(match_loss; dims = 1))
+    patch.loss_s .= prey_loss ./ patch.N_s
+    resource_uptake = sum(total_uptake .* ecol.match_resource)
     patch.resource_gain = ecol.in_rate
-    patch.resource_loss = ecol.out_rate*patch.resource + patch.total_uptake[1]
-    for tl in 1:ecol.trophic_levels
-        patch.gain_tl[tl] = patch.total_uptake[tl]/patch.N_tl[tl] * ecol.conversion_tl[tl]
-        if tl < ecol.trophic_levels
-            patch.loss_tl[tl] = patch.total_uptake[tl+1]/patch.N_tl[tl]
-        end
-    end
+    patch.resource_loss = ecol.out_rate*patch.resource + resource_uptake
     update_dm_patch(dm, ecol, patch)
 end
 
@@ -717,7 +745,7 @@ function next_event(world::World, ecol::Ecol_parameters, evol::Evol_parameters, 
             event = decrease_resource(patch, dm)
         elseif smpl_event == :reproduction
             tl = ecol.tl_species[s]
-            # event = rand() <= (patch.gain_tl[tl]/dm.c_b_ind[s, p])
+            # event = rand() <= (patch.gain_s[s]/dm.c_b_ind[s, p])
             event = true
             if event
                 mother = rand(1:patch.N_s[s])
@@ -733,7 +761,7 @@ function next_event(world::World, ecol::Ecol_parameters, evol::Evol_parameters, 
         else
             tl = ecol.tl_species[s]
             i = rand(1:patch.N_s[s])
-            event = rand() <= ((patch.mortality[s][i] + patch.loss_tl[tl])/dm.c_d_ind[s, p])
+            event = rand() <= ((patch.mortality[s][i] + patch.loss_s[s])/dm.c_d_ind[s, p])
             if event
                 remove_individual!(patch, ecol, s, i)
             end
@@ -817,7 +845,7 @@ function log_titles(f)
     "e_step_CC;time_CC;e_step_local;" * 
     "nbr_loci;sigma_z;mu;omega_e;d;rep_type;" * 
     "run;time;patch;X;Y;environment;resource;" * 
-    "species;trophic_level;bodymass;mortality;N;biomass;" * 
+    "species;match;trophic_level;bodymass;mortality;N;biomass;" * 
     "genotype_mean;genotype_var;phenotype_mean;phenotype_var;fitness_mean;fitness_var\n")
 end
 
@@ -825,12 +853,13 @@ function log_results(f, world::World, ecol::Ecol_parameters, evol::Evol_paramete
     for p in 1:world.nbr_patches, s in 1:ecol.species
         patch = world.patches[p]
         tl = ecol.tl_species[s]
+        mch = ecol.species_match[s]
         write(f, 
         "$(ecol.grid.X);$(ecol.grid.Y);$(ecol.torus.X);$(ecol.torus.Y);$(ecol.patches);$(ecol.m);$(ecol.rho);" *
         "$(ecol.env_step_CC);$(ecol.time_CC);$(ecol.env_step_local);" * 
         "$(evol.trait_loci);$(evol.sigma_z);$(evol.mu);$(evol.omega_e);$(ecol.d);$(ecol.rep_type);" * 
         "$(r);$(t);$(p);$(patch.X);$(patch.Y);$(patch.environment);$(patch.resource);" * 
-        "$(s);$(tl);$(ecol.bodymass_tl[tl]);$(ecol.d_tl[tl]);$(patch.N_s[s]);$(ecol.bodymass_tl[tl]*patch.N_s[s]);" * 
+        "$(s);$(mch);$(tl);$(ecol.bodymass_tl[tl]);$(ecol.d_tl[tl]);$(patch.N_s[s]);$(ecol.bodymass_tl[tl]*patch.N_s[s]);" * 
         "$(genotype_mean(patch, s));$(genotype_var(patch, s));$(phenotype_mean(patch, s));$(phenotype_var(patch, s));$(fitness_mean(patch, s));$(fitness_var(patch, s))\n")
     end
 end
@@ -978,3 +1007,34 @@ function evolving_foodweb_dm(init::Init_values)
     # return time, events, world, ecol, dm
 end
 
+
+# a = [x * y for x in 1:10, y in 1:10]
+# b = collect(1:10)
+# a
+# a*b
+# b'*a
+# b*b'
+# b'*b
+
+# species = 9
+# trophic_levels = 3
+# tl_species = [(s - 1) % trophic_levels + 1 for s = 1:species]
+# species_match = [(s - 1) ÷ trophic_levels + 1 for s = 1:species]
+# match_sd = 1.
+# match_matr = [tl_species[s1] == tl_species[s2] + 1 ? exp(-(species_match[s1] - species_match[s2])^2 / (2*match_sd^2)) : 0 for s1 in 1:species, s2 in 1:species]
+# sum(match_matr; dims=2)
+
+# match_rel = match_matr./[x == 0 ? 1 : x for x in sum(match_matr; dims=2)]
+# sum(match_rel; dims=2)
+
+# N_s = rand(species)*100
+# match_matr.*N_s'
+# match_N = match_matr .* N_s'
+# N_prey = sum(match_N; dims=2)
+# total_uptake = N_prey.*0.2
+# match_N_rel = match_N .* match_rel
+# match_N_rel2 = match_N ./ N_prey
+
+# match_N_rel[match_N_rel .== 0] .= 1
+# match_loss = total_uptake .* match_rel 
+# sum(match_loss; dims = 2)
