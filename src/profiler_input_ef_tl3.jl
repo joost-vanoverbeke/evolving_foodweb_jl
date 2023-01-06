@@ -28,7 +28,7 @@ init_values = Init_values(;
     spec_dist = :PATCH,
     rep_type = :SEXUAL,
     # species matching
-    match_sd = 100., 
+    match_sd = 10., 
     # trophic levels
     trophic_levels = 3,
     bm_offset = 1.,
@@ -54,7 +54,7 @@ init_values = Init_values(;
 
     ## run input
     runs = 1,
-    pre_post_change = 200,
+    pre_post_change = 100,
     print_steps = 50,
     log_steps = 50,
     output_file = "results/output_profiler.csv"

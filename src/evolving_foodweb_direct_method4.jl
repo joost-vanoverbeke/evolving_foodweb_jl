@@ -197,7 +197,10 @@ mutable struct Ecol_parameters
         tl_species = [(s - 1) % trophic_levels + 1 for s = 1:species]
 
         match_resource = [tl_species[s] == 1 ? 1 : 0 for s in 1:species]
-        species_match = [(s - 1) ÷ trophic_levels + 1 for s = 1:species]
+        # species_match = [(s - 1) ÷ trophic_levels + 1 for s = 1:species]
+        match_shuffle = shuffle(1:(species/trophic_levels))
+        species_match = [match_shuffle[(s - 1) ÷ trophic_levels + 1] for s = 1:species]
+        # species_match = rand(1:10, species/trophic_levels)
         match_matr = [tl_species[s1] == tl_species[s2] + 1 ? exp(-(species_match[s1] - species_match[s2])^2 / (2*match_sd^2)) : 0 for s1 in 1:species, s2 in 1:species]
         match_rel = match_matr./[x == 0 ? 1 : x for x in sum(match_matr; dims=2)]
         
@@ -297,7 +300,7 @@ function update_dm_patch(dm::Direct_method, ecol::Ecol_parameters, patch)
         # dm.c_total -= dm.c_vec[dm.c_d_ind_pos[s,p]]
         N_s = patch.N_s[s]
         if N_s > 0
-            tl = ecol.tl_species[s]
+            # tl = ecol.tl_species[s]
             gain = patch.gain_s[s]
             loss = patch.loss_s[s] + patch.mort_max_s[s]
         else
@@ -320,7 +323,7 @@ function update_dm_loss(dm::Direct_method, ecol::Ecol_parameters, patch)
     for s in 1:ecol.species
         N_s = patch.N_s[s]
         if N_s > 0
-            tl = ecol.tl_species[s]
+            # tl = ecol.tl_species[s]
             loss = patch.loss_s[s] + patch.mort_max_s[s]
         else
             loss = 0.
@@ -592,6 +595,7 @@ end
 function update_uptake(patch::Patch, ecol::Ecol_parameters, dm::Direct_method)
     match_N = ecol.match_matr .* patch.N_s'
     N_prey = sum(match_N; dims=2)
+    N_ratio = patch.N_s./(patch.N_tl[ecol.tl_species[1:ecol.species]]/(ecol.species/ecol.trophic_levels))
     uptake = zeros(ecol.species)
     for s in 1:ecol.species
         tl = ecol.tl_species[s]
@@ -604,7 +608,7 @@ function update_uptake(patch::Patch, ecol::Ecol_parameters, dm::Direct_method)
         patch.gain_s[s] = uptake[s] * ecol.conversion_tl[tl]
     end
     total_uptake = uptake .* patch.N_s
-    match_loss = total_uptake .* ecol.match_rel 
+    match_loss = total_uptake .* ecol.match_rel .* N_ratio'
     prey_loss = vec(sum(match_loss; dims = 1))
     patch.loss_s .= prey_loss ./ patch.N_s
     resource_uptake = sum(total_uptake .* ecol.match_resource)
@@ -1006,34 +1010,3 @@ function evolving_foodweb_dm(init::Init_values)
     # return time, events, world, ecol, dm
 end
 
-
-# a = [x * y for x in 1:10, y in 1:10]
-# b = collect(1:10)
-# a
-# a*b
-# b'*a
-# b*b'
-# b'*b
-
-# species = 9
-# trophic_levels = 3
-# tl_species = [(s - 1) % trophic_levels + 1 for s = 1:species]
-# species_match = [(s - 1) ÷ trophic_levels + 1 for s = 1:species]
-# match_sd = 1.
-# match_matr = [tl_species[s1] == tl_species[s2] + 1 ? exp(-(species_match[s1] - species_match[s2])^2 / (2*match_sd^2)) : 0 for s1 in 1:species, s2 in 1:species]
-# sum(match_matr; dims=2)
-
-# match_rel = match_matr./[x == 0 ? 1 : x for x in sum(match_matr; dims=2)]
-# sum(match_rel; dims=2)
-
-# N_s = rand(species)*100
-# match_matr.*N_s'
-# match_N = match_matr .* N_s'
-# N_prey = sum(match_N; dims=2)
-# total_uptake = N_prey.*0.2
-# match_N_rel = match_N .* match_rel
-# match_N_rel2 = match_N ./ N_prey
-
-# match_N_rel[match_N_rel .== 0] .= 1
-# match_loss = total_uptake .* match_rel 
-# sum(match_loss; dims = 2)

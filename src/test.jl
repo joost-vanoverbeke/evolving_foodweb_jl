@@ -1,6 +1,6 @@
 
 
-
+# rand(1:100, 10)
 
 # a = [x * y for x in 1:10, y in 1:10]
 # b = collect(1:10)
@@ -15,7 +15,7 @@ in_rate = 220.
 out_rate = 0.1
 
 species = 9
-match_sd = 100.
+match_sd = 1000.
 trophic_levels = 3
 
 bm_offset = 1.
@@ -64,9 +64,9 @@ for tl in 1:trophic_levels
 end
 
 N_s = zeros(Int64, species)
-N_s[[1,4,7]] .= 1000
-N_s[[2,5,8]] .= 100
-N_s[[3,6,9]] .= 10
+N_s[[1,4,7]] .= [2000,3000,1000]
+N_s[[2,5,8]] .= [100,200,300]
+N_s[[3,6,9]] .= [30,10,20]
 N_tl = zeros(Int64, trophic_levels)
 N_tl[1] =  sum(N_s[[1,4,7]])
 N_tl[2] =  sum(N_s[[2,5,8]])
@@ -75,10 +75,15 @@ total_N = sum(N_tl)
 
 gain_s = zeros(species)
 loss_s = zeros(species)
+gain_tl = zeros(trophic_levels)
+loss_tl = zeros(trophic_levels)
+
+uptake = zeros(species)
+total_uptake_tl = zeros(trophic_levels)
 
 match_N = match_matr .* N_s'
 N_prey = sum(match_N; dims=2)
-uptake = zeros(species)
+N_ratio = N_s./(N_tl[tl_species[1:species]]/(species/trophic_levels))
 for s in 1:species
     tl = tl_species[s]
     if tl == 1
@@ -90,12 +95,31 @@ for s in 1:species
     gain_s[s] = uptake[s] * conversion_tl[tl]
 end
 total_uptake = uptake .* N_s
-match_loss = total_uptake .* match_rel 
+match_loss = total_uptake .* match_rel .* N_ratio'
 prey_loss = vec(sum(match_loss; dims = 1))
 loss_s .= prey_loss ./ N_s
 resource_uptake = sum(total_uptake .* match_resource)
 resource_gain = in_rate
 resource_loss = out_rate*resource + resource_uptake
+
+
+
+for tl in 1:trophic_levels
+    if tl == 1
+        upt = uptake_tl[tl, 1]*resource^uptake_pars[3]
+    else
+        upt = uptake_tl[tl, 1]*N_tl[tl-1]^uptake_pars[3]
+    end
+    total_uptake[tl] = upt/(1. + upt*uptake_tl[tl, 2])*N_tl[tl]
+end
+resource_gain_tl = in_rate
+resource_loss_tl = out_rate*resource + total_uptake[1]
+for tl in 1:trophic_levels
+    gain_tl[tl] = total_uptake[tl]/N_tl[tl] * conversion_tl[tl]
+    if tl < trophic_levels
+        loss_tl[tl] = total_uptake[tl+1]/N_tl[tl]
+    end
+end
 
 
 
