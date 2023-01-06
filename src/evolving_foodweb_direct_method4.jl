@@ -163,13 +163,12 @@ mutable struct Ecol_parameters
         out_rate = init.out_rate
         # species
         rep_type = init.rep_type
+        # species matching
+        match_sd = init.match_sd
         # trophic levels
         trophic_levels = init.trophic_levels
         bm_offset = init.bm_offset
         bm_power = init.bm_power
-
-        match_sd = init.match_sd
-    
         # mortality
         d = init.d
         d_power = init.d_power
@@ -841,7 +840,7 @@ end
 
 function log_titles(f)
     write(f, 
-    "grid_X;grid_Y;torus_X;torus_Y;patches;m;rho;" * 
+    "grid_X;grid_Y;torus_X;torus_Y;patches;species;match_sd;m;rho;" * 
     "e_step_CC;time_CC;e_step_local;" * 
     "nbr_loci;sigma_z;mu;omega_e;d;rep_type;" * 
     "run;time;patch;X;Y;environment;resource;" * 
@@ -855,7 +854,7 @@ function log_results(f, world::World, ecol::Ecol_parameters, evol::Evol_paramete
         tl = ecol.tl_species[s]
         mch = ecol.species_match[s]
         write(f, 
-        "$(ecol.grid.X);$(ecol.grid.Y);$(ecol.torus.X);$(ecol.torus.Y);$(ecol.patches);$(ecol.m);$(ecol.rho);" *
+        "$(ecol.grid.X);$(ecol.grid.Y);$(ecol.torus.X);$(ecol.torus.Y);$(ecol.patches);$(ecol.species);$(ecol.match_sd);$(ecol.m);$(ecol.rho);" *
         "$(ecol.env_step_CC);$(ecol.time_CC);$(ecol.env_step_local);" * 
         "$(evol.trait_loci);$(evol.sigma_z);$(evol.mu);$(evol.omega_e);$(ecol.d);$(ecol.rep_type);" * 
         "$(r);$(t);$(p);$(patch.X);$(patch.Y);$(patch.environment);$(patch.resource);" * 
