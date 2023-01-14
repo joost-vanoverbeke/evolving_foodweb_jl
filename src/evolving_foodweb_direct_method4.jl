@@ -9,16 +9,20 @@ using Statistics
 
 # using ExportAll
 
-struct Init_values
+mutable struct Init_values
     ## ecological values
     grid::NamedTuple{(:X, :Y),Tuple{Int,Int}}
     torus::NamedTuple{(:X, :Y),Tuple{Symbol,Symbol}}
     env_range::NamedTuple{(:X, :Y),Tuple{Tuple{Float64, Float64},Tuple{Float64, Float64}}}
-    env_step_CC::Float64
+    CC_vec::Vector{Float64}
+    time_CC_vec::Vector{Int}
+    CC::Float64
     time_CC::Int
+    env_step_CC::Float64
     env_step_local::Float64
     dt_env::Float64
     # dispersal
+    m_vec::Vector{Float64}
     m::Float64
     rho::Float64
     m_tl::Symbol
@@ -63,9 +67,9 @@ struct Init_values
         ## ecological values
         # patches
         grid = (X = 5, Y = 2), torus = (X = :NO, Y = :NO), env_range = (X = (-1., 1.), Y = (0., 0.)), 
-        env_step_CC = 0., time_CC = 80, env_step_local = 0.01, dt_env = 0.1,
+        CC_vec = [0.], time_CC_vec = 0, CC = CC_vec[1], time_CC = time_CC_vec[1], env_step_CC = CC/time_CC, env_step_local = 0.01, dt_env = 0.1,
         # dispersal
-        m = 0.1, rho = 2., m_tl = :EQUAL,
+        m_vec = [0.1], m = m_vec[1], rho = 2., m_tl = :EQUAL,
         # resource
         resource = 200., in_rate = 200., out_rate = 0.1,
         # species
@@ -87,7 +91,7 @@ struct Init_values
         log_steps = 10,
         output_file = "output_evolving_foodweb.csv"
         )
-        return new(grid, torus, env_range, env_step_CC, time_CC, env_step_local, dt_env, m, rho, m_tl, resource, in_rate, out_rate, N, spec_dist, rep_type, trophic_levels, bm_offset, bm_power, d, d_power, uptake_pars, i_power, resource_conversion, resource_assimilation, assimilation_eff, scale_uptake, scale_assim, omega_e, trait_loci, mu, sigma_z, runs, pre_post_change, print_steps, log_steps, output_file)
+        return new(grid, torus, env_range, CC_vec, time_CC_vec, CC, time_CC, env_step_CC, env_step_local, dt_env, m_vec, m, rho, m_tl, resource, in_rate, out_rate, N, spec_dist, rep_type, trophic_levels, bm_offset, bm_power, d, d_power, uptake_pars, i_power, resource_conversion, resource_assimilation, assimilation_eff, scale_uptake, scale_assim, omega_e, trait_loci, mu, sigma_z, runs, pre_post_change, print_steps, log_steps, output_file)
     end
 end
 
@@ -97,6 +101,7 @@ mutable struct Ecol_parameters
     grid::NamedTuple{(:X, :Y),Tuple{Int,Int}}
     torus::NamedTuple{(:X, :Y),Tuple{Symbol,Symbol}}
     env_range::NamedTuple{(:X, :Y),Tuple{Tuple{Float64, Float64},Tuple{Float64, Float64}}}
+    CC::Float64
     env_step_CC::Float64
     time_CC::Int
     env_step_local::Float64
@@ -139,6 +144,7 @@ mutable struct Ecol_parameters
         grid = init.grid
         torus = init.torus
         env_range = init.env_range
+        CC = init.CC
         env_step_CC = init.env_step_CC
         time_CC = init.time_CC
         env_step_local = init.env_step_local
@@ -203,7 +209,7 @@ mutable struct Ecol_parameters
                 conversion_tl[tl] = assimilation_eff * bodymass_tl[tl-1]/(bodymass_tl[tl]^(1/scale_assim))
             end
         end
-        return new(grid, torus, env_range, env_step_CC, time_CC, env_step_local, dt_env, patches, m, rho, m_tl, m_power, in_rate, out_rate, species, rep_type, trophic_levels, bodymass_tl, tl_species, bm_offset, bm_power, d, d_power, d_tl, uptake_pars, i_power, uptake_tl, resource_conversion, resource_assimilation, assimilation_eff, conversion_tl, scale_uptake, scale_assim)
+        return new(grid, torus, env_range, CC, env_step_CC, time_CC, env_step_local, dt_env, patches, m, rho, m_tl, m_power, in_rate, out_rate, species, rep_type, trophic_levels, bodymass_tl, tl_species, bm_offset, bm_power, d, d_power, d_tl, uptake_pars, i_power, uptake_tl, resource_conversion, resource_assimilation, assimilation_eff, conversion_tl, scale_uptake, scale_assim)
     end
 end
 
@@ -814,20 +820,20 @@ end
 function log_titles(f)
     write(f, 
     "grid_X;grid_Y;torus_X;torus_Y;patches;m;rho;" * 
-    "e_step_CC;time_CC;e_step_local;" * 
+    "CC;time_CC;pre_CC;post_CC;e_step_local;" * 
     "nbr_loci;sigma_z;mu;omega_e;d;rep_type;" * 
     "run;time;patch;X;Y;environment;resource;" * 
     "species;trophic_level;bodymass;mortality;N;biomass;" * 
     "genotype_mean;genotype_var;phenotype_mean;phenotype_var;fitness_mean;fitness_var\n")
 end
 
-function log_results(f, world::World, ecol::Ecol_parameters, evol::Evol_parameters, r, t)
+function log_results(f, world::World, ecol::Ecol_parameters, evol::Evol_parameters, run::Run, r, t)
     for p in 1:world.nbr_patches, s in 1:ecol.species
         patch = world.patches[p]
         tl = ecol.tl_species[s]
         write(f, 
         "$(ecol.grid.X);$(ecol.grid.Y);$(ecol.torus.X);$(ecol.torus.Y);$(ecol.patches);$(ecol.m);$(ecol.rho);" *
-        "$(ecol.env_step_CC);$(ecol.time_CC);$(ecol.env_step_local);" * 
+        "$(ecol.CC);$(ecol.time_CC);$(run.pre_change);$(run.post_change);$(ecol.env_step_local);" * 
         "$(evol.trait_loci);$(evol.sigma_z);$(evol.mu);$(evol.omega_e);$(ecol.d);$(ecol.rep_type);" * 
         "$(r);$(t);$(p);$(patch.X);$(patch.Y);$(patch.environment);$(patch.resource);" * 
         "$(s);$(tl);$(ecol.bodymass_tl[tl]);$(ecol.d_tl[tl]);$(patch.N_s[s]);$(ecol.bodymass_tl[tl]*patch.N_s[s]);" * 
@@ -835,8 +841,8 @@ function log_results(f, world::World, ecol::Ecol_parameters, evol::Evol_paramete
     end
 end
 
-function print_results(world::World, r, t)
-    println("run = $r;  time = $t;  N = $(total_N(world))")
+function print_results(world::World, r, t, m, cc, tcc)
+    println("run = $r;  time = $t; m = $m; CC = $cc; time_CC = $tcc;  N = $(total_N(world))")
 end
 
 function binary_search(lst, val)
@@ -900,77 +906,83 @@ end
 
 
 function evolving_foodweb_dm(init::Init_values)
-    run = Run(init);
-    ecol = Ecol_parameters(init);
-    evol = Evol_parameters(init);
-    dm = Direct_method(ecol; c_b_res = ecol.in_rate, c_d_res = ecol.in_rate*2, c_b = 1., c_d = 1.);
-
-    f = open(run.output_file,"w")
+    # run = Run(init);
+    f = open(init.output_file,"w")
     log_titles(f)
 
-    for r in 1:run.runs
-        world = World(ecol, evol, init);
-        for p in 1:world.nbr_patches
-            update_uptake(world.patches[p], ecol, dm)
-        end
-        time = 0.
-        time_env = ecol.dt_env
-        time_log = run.log_steps
-        time_print = run.print_steps
-        events = zeros(Int, 4)
-
-        # m_min = 0.0
-        # m_max = 0.2
-        # m_step = 0.01
-        # m_sign = 1.
-        # m_timestep = 1000
-        # ecol.m = m_min
-        # time_m = m_timestep
-
-        # println("init step_CC = $(init.env_step_CC)")
-        # println("ecol step_CC = $(ecol.env_step_CC)")
-        # println("dt_env = $(ecol.dt_env)")
-
-        log_results(f, world, ecol, evol, r, round(time))
-        println()
-        print_results(world, r, round(time))
-
-        while time < run.time_steps
-            dt, event = next_event(world, ecol, evol, dm)
-            time += dt
-            if event == :resource_gain
-                events[1] += 1
-            elseif event == :resource_loss
-                events[2] += 1
-            elseif event == :reproduction
-                events[3] += 1
-            else
-                events[4] += 1
+    for r in 1:init.runs
+        for m in init.m_vec, cc in init.CC_vec, tcc in init.time_CC_vec
+            init.m = m
+            init.CC = cc
+            init.time_CC = tcc
+            init.env_step_CC = tcc > 0 ? cc/tcc : 0.
+            run = Run(init);
+            ecol = Ecol_parameters(init);
+            evol = Evol_parameters(init);
+            dm = Direct_method(ecol; c_b_res = ecol.in_rate, c_d_res = ecol.in_rate*2, c_b = 1., c_d = 1.);
+            world = World(ecol, evol, init);
+            for p in 1:world.nbr_patches
+                update_uptake(world.patches[p], ecol, dm)
             end
-            if time > time_env
-                if ecol.env_step_CC > 0. && time > run.pre_change && time < (run.time_steps - run.post_change)
-                    change_environment_CC(world, ecol)
+            time = 0.
+            time_env = ecol.dt_env
+            time_log = run.log_steps
+            time_print = run.print_steps
+            events = zeros(Int, 4)
+
+            # m_min = 0.0
+            # m_max = 0.2
+            # m_step = 0.01
+            # m_sign = 1.
+            # m_timestep = 1000
+            # ecol.m = m_min
+            # time_m = m_timestep
+
+            # println("init step_CC = $(init.env_step_CC)")
+            # println("ecol step_CC = $(ecol.env_step_CC)")
+            # println("dt_env = $(ecol.dt_env)")
+
+            log_results(f, world, ecol, evol, run, r, round(time))
+            println()
+            print_results(world, r, round(time), m, cc, tcc)
+
+            while time < run.time_steps
+                dt, event = next_event(world, ecol, evol, dm)
+                time += dt
+                if event == :resource_gain
+                    events[1] += 1
+                elseif event == :resource_loss
+                    events[2] += 1
+                elseif event == :reproduction
+                    events[3] += 1
+                else
+                    events[4] += 1
                 end
-                change_environment_local(world, ecol, evol, dm)
-                time_env += ecol.dt_env
-            end
+                if time > time_env
+                    if ecol.env_step_CC > 0. && time > run.pre_change && time < (run.time_steps - run.post_change)
+                        change_environment_CC(world, ecol)
+                    end
+                    change_environment_local(world, ecol, evol, dm)
+                    time_env += ecol.dt_env
+                end
 
-            # if time > time_m
-            #     if ecol.m < m_min || ecol.m > m_max
-            #         m_sign = -m_sign
-            #     end
-            #     ecol.m += m_sign * m_step
-            #     calc_m_neighbours(world, ecol)
-            #     time_m += m_timestep
-            # end
+                # if time > time_m
+                #     if ecol.m < m_min || ecol.m > m_max
+                #         m_sign = -m_sign
+                #     end
+                #     ecol.m += m_sign * m_step
+                #     calc_m_neighbours(world, ecol)
+                #     time_m += m_timestep
+                # end
 
-            if time > time_log
-                log_results(f, world, ecol, evol, r, round(time))
-                time_log += run.log_steps
-            end
-            if time > time_print
-                print_results(world, r, round(time))
-                time_print += run.print_steps
+                if time > time_log
+                    log_results(f, world, ecol, evol, run, r, round(time))
+                    time_log += run.log_steps
+                end
+                if time > time_print
+                    print_results(world, r, round(time), m, cc, tcc)
+                    time_print += run.print_steps
+                end
             end
         end
     end
