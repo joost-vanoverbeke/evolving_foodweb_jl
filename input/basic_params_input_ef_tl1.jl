@@ -4,17 +4,17 @@ include("../src/evolving_foodweb_direct_method4.jl")
 init_values = Init_values(;
     ## ecological input
     # patches
-    grid = (X = 1, Y = 1),
+    grid = (X = 1, Y = 2),
     torus = (X = :NO, Y = :NO),
     env_range = (X = (-0.001, 0.001), Y = (-0.05, 0.05)),
-    CC_vec = [0.0],
-    time_CC_vec = [0],
+    CC_vec = [0.0, 0.1],
+    time_CC_vec = [100],
     # env_step_CC = 0.0004,
     # time_CC = 1000,
     env_step_local = 0.002,
     dt_env = 1.,
     # dispersal
-    m_vec = [0.0],
+    m_vec = [0.0, 0.01],
     rho = 2.0,
     m_tl = :EQUAL,
     # resource

@@ -206,7 +206,7 @@ for(r in levels(data_filt$run)) {
     {ggplot(., aes(x = time)) +
         geom_line(aes(y = N, color = species), linetype = 1, size = 1) +
         scale_color_discrete_qualitative() +
-        # scale_y_log10() +
+        scale_y_log10() +
         # facet_grid(Y ~ X, labeller = "label_both") +
         facet_grid(X ~ Y, labeller = "label_both") +
         ggtitle(str_c("Run ", r)) +
