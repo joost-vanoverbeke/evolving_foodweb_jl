@@ -1,0 +1,115 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r libraries}
+
+library(tidyverse)
+library(magrittr)
+# library(ggpubr)
+# library(RColorBrewer)
+library(colorspace)
+
+```
+
+
+```{r colors}
+
+cbPalette <- c("#E69F00", # orange
+               "#56B4E9", # lightblue
+               "#009E73", # green
+               "#F0E442", # yellow
+               "#0072B2", # darkblue
+               "#D55E00", # red
+               "#CC79A7") # cyan
+
+```
+
+
+```{r data}
+
+data <- 
+  read_delim("../results/output_X5_Y5_tl2_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
+             delim = ";") 
+
+```
+
+
+```{r figuren}
+
+for(sd in unique(data$match_sd)) {
+  for(mgr in unique(data$m)) {
+    for(r in unique(data$run)) {
+      data %>%
+        filter(
+          # time >= 100,
+          run == r,
+          m == mgr,
+          match_sd == sd) %>%
+        mutate(match = factor(match),
+               Y = factor(Y),
+               trophic_level = factor(trophic_level)) %>% 
+        group_by(run, m, match_sd, time, Y, trophic_level) %>%
+        summarise(N = sum(N)) %>% 
+        ungroup() %>% 
+        {ggplot(., aes(x = time, y = N+1)) +
+            geom_line(aes(linetype = trophic_level), size = 1) +
+            scale_y_log10() +
+            scale_color_discrete_qualitative() +
+            facet_grid(~ Y, labeller = "label_both") +
+            ggtitle(str_c("match_sd ", sd, "; m ", mgr, "; run ", r)) +
+            guides(color = "none")} %>% 
+        print()
+    }
+  }
+}
+
+
+data %>%
+  mutate(match = factor(match),
+         Y = factor(Y),
+         trophic_level = factor(trophic_level)) %>% 
+  group_by(run, m, match_sd, time, Y, trophic_level) %>%
+  summarise(N = sum(N)) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = time, y = N+1)) +
+  # geom_line(aes(group = Y:trophic_level, color = Y, linetype = trophic_level), size = 1) +
+  geom_smooth(aes(group = trophic_level, color = trophic_level, linetype = trophic_level), size = 1) +
+  scale_y_log10() +
+  scale_color_discrete_qualitative() +
+  facet_grid(match_sd ~ m, labeller = "label_both")
+
+        
+for(sd in unique(data$match_sd)) {
+  for(mgr in unique(data$m)) {
+    for(r in unique(data$run)) {
+      dat <-
+        data %>%
+        filter(
+          # time >= 100,
+          run == r,
+          m == mgr,
+          match_sd == sd) %>%
+        mutate(match = factor(match),
+               Y = factor(Y),
+               trophic_level = factor(trophic_level)) 
+      if(nrow(dat) > 0) {
+        dat %>% 
+          {ggplot(., aes(x = time, y = N+1)) +
+              geom_line(aes(color = match, linetype = trophic_level), size = 1) +
+              scale_y_log10() +
+              scale_color_discrete_qualitative() +
+              facet_grid(Y ~ match, labeller = "label_both") +
+              ggtitle(str_c("match_sd ", sd, "; m ", mgr, "; run ", r)) +
+              guides(color = "none")} %>% 
+          print()
+      }
+    }
+  }
+}
+
+```
+

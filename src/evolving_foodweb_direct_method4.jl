@@ -33,8 +33,10 @@ mutable struct Init_values
     # species
     N::Int
     spec_dist::Symbol
+    spec_dens::Int
     rep_type::Symbol
     # species matching
+    match_sd_vec::Vector{Float64}
     match_sd::Float64
     # trophic levels
     trophic_levels::Int
@@ -75,9 +77,9 @@ mutable struct Init_values
         # resource
         resource = 200., in_rate = 200., out_rate = 0.1,
         # species
-        N = 10000, spec_dist = :X, rep_type = :ASEXUAL,
+        N = 10000, spec_dist = :X, spec_dens = 1, rep_type = :ASEXUAL,
         # species matching
-        match_sd = 1., 
+        match_sd_vec = [1.], match_sd = match_sd_vec[1], 
         # trophic levels
         trophic_levels = 3, bm_offset = 1., bm_power = 1.,
         # mortality
@@ -95,7 +97,7 @@ mutable struct Init_values
         log_steps = 10,
         output_file = "output_evolving_foodweb.csv"
         )
-        return new(grid, torus, env_range, CC_vec, time_CC_vec, CC, time_CC, env_step_CC, env_step_local, dt_env, m_vec, m, rho, m_tl, resource, in_rate, out_rate, N, spec_dist, rep_type, match_sd, trophic_levels, bm_offset, bm_power, d, d_power, uptake_pars, i_power, resource_conversion, resource_assimilation, assimilation_eff, scale_uptake, scale_assim, omega_e, trait_loci, mu, sigma_z, runs, pre_post_change, print_steps, log_steps, output_file)
+        return new(grid, torus, env_range, CC_vec, time_CC_vec, CC, time_CC, env_step_CC, env_step_local, dt_env, m_vec, m, rho, m_tl, resource, in_rate, out_rate, N, spec_dist, spec_dens, rep_type, match_sd_vec, match_sd, trophic_levels, bm_offset, bm_power, d, d_power, uptake_pars, i_power, resource_conversion, resource_assimilation, assimilation_eff, scale_uptake, scale_assim, omega_e, trait_loci, mu, sigma_z, runs, pre_post_change, print_steps, log_steps, output_file)
     end
 end
 
@@ -128,7 +130,7 @@ mutable struct Ecol_parameters
     tl_species::Vector{Int}
 
     match_resource::Vector{Int}
-    species_match::Vector{Int}
+    species_match::Vector{Float64}
     match_sd::Float64
     match_matr::Array{Float64, 2}
     match_rel::Array{Float64, 2}
@@ -195,19 +197,20 @@ mutable struct Ecol_parameters
         in_rate = in_rate*scale_uptake
         uptake_pars[1] /= scale_uptake
         if init.spec_dist == :X
-            species = grid.X*trophic_levels # different species for different X
+            species = grid.X*trophic_levels*init.spec_dens # different species for different X
         else
-            species = patches*trophic_levels # different species in each patch
+            species = patches*trophic_levels*init.spec_dens # different species in each patch
             # species = 1
         end
         tl_species = [(s - 1) % trophic_levels + 1 for s = 1:species]
 
         match_resource = [tl_species[s] == 1 ? 1 : 0 for s in 1:species]
         # species_match = [(s - 1) ÷ trophic_levels + 1 for s = 1:species]
-        match_shuffle = shuffle(1:(species/trophic_levels))
+        # match_shuffle = shuffle(1:(species/trophic_levels))
+        match_shuffle = round.(rand(convert(Int, species/trophic_levels)), digits=3)
         species_match = [match_shuffle[(s - 1) ÷ trophic_levels + 1] for s = 1:species]
         # species_match = rand(1:10, species/trophic_levels)
-        match_matr = [tl_species[s1] == tl_species[s2] + 1 ? exp(-(species_match[s1] - species_match[s2])^2 / (2*match_sd^2)) : 0 for s1 in 1:species, s2 in 1:species]
+        match_matr = [tl_species[s1] == tl_species[s2] + 1 ? exp(-(min(abs(species_match[s1] - species_match[s2]), 1 - abs(species_match[s1] - species_match[s2])))^2 / (2*match_sd^2)) : 0 for s1 in 1:species, s2 in 1:species]
         match_rel = match_matr./[x == 0 ? 1 : x for x in sum(match_matr; dims=2)]
         
         bodymass_tl = [bm_offset*10^((l - 1)*bm_power) for l = 1:trophic_levels]
@@ -858,7 +861,7 @@ end
 
 function log_titles(f)
     write(f, 
-    "grid_X;grid_Y;torus_X;torus_Y;patches;species;match_sd;m;rho;" * 
+    "grid_X;grid_Y;torus_X;torus_Y;patches;nbr_species;match_sd;m;rho;" * 
     "CC;time_CC;pre_CC;post_CC;e_step_local;" * 
     "nbr_loci;sigma_z;mu;omega_e;d;rep_type;" * 
     "run;time;patch;X;Y;environment;resource;" * 
@@ -875,14 +878,14 @@ function log_results(f, world::World, ecol::Ecol_parameters, evol::Evol_paramete
         "$(ecol.grid.X);$(ecol.grid.Y);$(ecol.torus.X);$(ecol.torus.Y);$(ecol.patches);$(ecol.species);$(ecol.match_sd);$(ecol.m);$(ecol.rho);" *
         "$(ecol.CC);$(ecol.time_CC);$(run.pre_change);$(run.post_change);$(ecol.env_step_local);" * 
         "$(evol.trait_loci);$(evol.sigma_z);$(evol.mu);$(evol.omega_e);$(ecol.d);$(ecol.rep_type);" * 
-        "$(r);$(t);$(p);$(patch.X);$(patch.Y);$(patch.environment);$(patch.resource);" * 
-        "$(s);$(mch);$(tl);$(ecol.bodymass_tl[tl]);$(ecol.d_tl[tl]);$(patch.N_s[s]);$(ecol.bodymass_tl[tl]*patch.N_s[s]);" * 
-        "$(genotype_mean(patch, s));$(genotype_var(patch, s));$(phenotype_mean(patch, s));$(phenotype_var(patch, s));$(fitness_mean(patch, s));$(fitness_var(patch, s))\n")
+        "$(r);$(t);$(p);$(patch.X);$(patch.Y);$(round(patch.environment, digits=2));$(patch.resource);" * 
+        "$(s);$(mch);$(tl);$(ecol.bodymass_tl[tl]);$(round(ecol.d_tl[tl], digits=3));$(patch.N_s[s]);$(ecol.bodymass_tl[tl]*patch.N_s[s]);" * 
+        "$(round(genotype_mean(patch, s), digits=2));$(round(genotype_var(patch, s), digits=5));$(round(phenotype_mean(patch, s), digits=2));$(round(phenotype_var(patch, s), digits=5));$(round(fitness_mean(patch, s), digits=2));$(round(fitness_var(patch, s), digits=5))\n")
     end
 end
 
-function print_results(world::World, r, t, m, cc, tcc)
-    println("run = $r;  time = $t; m = $m; CC = $cc; time_CC = $tcc;  N = $(total_N(world))")
+function print_results(world::World, r, t, m, cc, tcc, msd)
+    println("run = $r;  time = $t; m = $m; CC = $cc; time_CC = $tcc; match_sd = $msd;  N = $(total_N(world))")
 end
 
 function binary_search(lst, val)
@@ -951,8 +954,9 @@ function evolving_foodweb_dm(init::Init_values)
     log_titles(f)
 
     for r in 1:init.runs
-        for m in init.m_vec, cc in init.CC_vec, tcc in init.time_CC_vec
+        for m in init.m_vec, cc in init.CC_vec, tcc in init.time_CC_vec, msd in init.match_sd_vec
             init.m = m
+            init.match_sd = msd
             init.CC = cc
             init.time_CC = tcc
             init.env_step_CC = tcc > 0 ? cc/tcc : 0.
@@ -984,7 +988,7 @@ function evolving_foodweb_dm(init::Init_values)
 
             log_results(f, world, ecol, evol, run, r, round(time))
             println()
-            print_results(world, r, round(time), m, cc, tcc)
+            print_results(world, r, round(time), m, cc, tcc, msd)
 
             while time < run.time_steps
                 dt, event = next_event(world, ecol, evol, dm)
@@ -1020,7 +1024,7 @@ function evolving_foodweb_dm(init::Init_values)
                     time_log += run.log_steps
                 end
                 if time > time_print
-                    print_results(world, r, round(time), m, cc, tcc)
+                    print_results(world, r, round(time), m, cc, tcc, msd)
                     time_print += run.print_steps
                 end
             end
