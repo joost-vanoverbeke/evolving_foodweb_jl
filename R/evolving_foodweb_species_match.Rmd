@@ -113,3 +113,99 @@ for(sd in unique(data$match_sd)) {
 
 ```
 
+
+```{r calculations}
+
+tls <- max(data$trophic_level)  
+nX <- max(data$X)
+nY <- max(data$Y)
+
+data <- 
+  data %>% 
+  # filter(run == 1) %>% 
+  mutate(origin = (species+tls-1)%/%tls,
+         origin_X = ((origin-1)%%nX)+1,
+         origin_Y = ((origin-1)%/%nX)+1,
+         origin = ordered(origin),
+         origin_X = ordered(origin_X),
+         origin_Y = ordered(origin_Y),
+         species = ordered(species),
+         trophic_level = ordered(trophic_level),
+         run = ordered(run),
+         patch = ordered(patch),
+         X = ordered(X),
+         Y = ordered(Y))
+
+data_origin <-
+  data %>%
+  distinct(species, trophic_level, origin, origin_X, origin_Y)
+
+
+data_div_alpha <-
+  data %>% 
+  mutate(run = ordered(run)) %>% 
+  filter(N > 0) %>% 
+  group_by(scenario, grid_X, grid_Y, m, match_sd, mu, run, time, patch, X, Y, trophic_level) %>%
+  # group_by(mu, run, time, patch, X, Y) %>% 
+  mutate(p_N = N/sum(N),
+         p_biomass = biomass/sum(biomass)) %>%
+  summarise(alpha_H_N = -sum(p_N*log(p_N)),
+            alpha_H_biomass = -sum(p_biomass*log(p_biomass))) %>% 
+  ungroup() %>% 
+  mutate(# alpha_div_N = exp(alpha_H_N),
+         alpha_div_biomass = exp(alpha_H_biomass)) %>%
+  group_by(scenario, grid_X, grid_Y, m, match_sd, mu, run, time, trophic_level) %>%
+  # group_by(mu, run, time) %>% 
+  summarise(alpha_div_N = exp((-1/n())*sum(-alpha_H_N)),
+            alpha_div_biomass = exp((-1/n())*sum(-alpha_H_biomass)),
+            alpha_H_N = mean(alpha_H_N),
+            alpha_H_biomass = mean(alpha_H_biomass),
+            # alpha_div_N = mean(alpha_div_N),
+            # alpha_div_biomass = mean(alpha_div_biomass)
+            ) %>% 
+  ungroup()
+  
+data_div_gamma <-
+  data %>% 
+  mutate(run = ordered(run)) %>% 
+  filter(N > 0) %>% 
+  group_by(scenario, grid_X, grid_Y, mu, run, time, species, trophic_level) %>%
+  # group_by(mu, run, time, species) %>%
+  summarise(N = sum(N),
+            biomass = sum(biomass)) %>% 
+  ungroup() %>% 
+  group_by(scenario, grid_X, grid_Y, mu, run, time, trophic_level) %>%
+  # group_by(mu, run, time) %>%
+  mutate(p_N = N/sum(N),
+         p_biomass = biomass/sum(biomass)) %>%
+  summarise(gamma_H_N = -sum(p_N*log(p_N)),
+            gamma_H_biomass = -sum(p_biomass*log(p_biomass))) %>% 
+  ungroup() %>% 
+  mutate(gamma_div_N = exp(gamma_H_N),
+         gamma_div_biomass = exp(gamma_H_biomass)) %>% 
+  group_by(scenario, grid_X, grid_Y, mu, run, time, trophic_level) %>%
+  # group_by(mu, run, time) %>% 
+  summarise(gamma_H_N = mean(gamma_H_N),
+            gamma_H_biomass = mean(gamma_H_biomass),
+            gamma_div_N = mean(gamma_div_N),
+            gamma_div_biomass = mean(gamma_div_biomass)) %>% 
+  ungroup()
+
+
+data_div <-
+  data_div_alpha %>% 
+  left_join(data_div_gamma) %>% 
+  mutate(beta_H_N = gamma_H_N-alpha_H_N,
+         beta_H_biomass = gamma_H_biomass-alpha_H_biomass,
+         beta_div_N = gamma_div_N/alpha_div_N,
+         beta_div_biomass = gamma_div_biomass/alpha_div_biomass) %>% 
+  select(-run) %>% 
+  group_by(scenario, grid_X, grid_Y, mu, time, trophic_level) %>%
+  # group_by(mu, time) %>% 
+  summarise(across(.fns = ~mean(.))) %>% 
+  ungroup() %>% 
+  mutate(mu = ordered(mu))
+
+```
+
+
