@@ -33,6 +33,7 @@ mutable struct Init_values
     # species
     N::Int
     spec_dist::Symbol
+    spec_dens::Int
     rep_type::Symbol
     # trophic levels
     trophic_levels::Int
@@ -73,7 +74,7 @@ mutable struct Init_values
         # resource
         resource = 200., in_rate = 200., out_rate = 0.1,
         # species
-        N = 10000, spec_dist = :X, rep_type = :ASEXUAL,
+        N = 10000, spec_dist = :X, spec_dens = 1, rep_type = :ASEXUAL,
         # trophic levels
         trophic_levels = 3, bm_offset = 1., bm_power = 1.,
         # mortality
@@ -91,7 +92,7 @@ mutable struct Init_values
         log_steps = 10,
         output_file = "output_evolving_foodweb.csv"
         )
-        return new(grid, torus, env_range, CC_vec, time_CC_vec, CC, time_CC, env_step_CC, env_step_local, dt_env, m_vec, m, rho, m_tl, resource, in_rate, out_rate, N, spec_dist, rep_type, trophic_levels, bm_offset, bm_power, d, d_power, uptake_pars, i_power, resource_conversion, resource_assimilation, assimilation_eff, scale_uptake, scale_assim, omega_e, trait_loci, mu, sigma_z, runs, pre_post_change, print_steps, log_steps, output_file)
+        return new(grid, torus, env_range, CC_vec, time_CC_vec, CC, time_CC, env_step_CC, env_step_local, dt_env, m_vec, m, rho, m_tl, resource, in_rate, out_rate, N, spec_dist, spec_dens, rep_type, trophic_levels, bm_offset, bm_power, d, d_power, uptake_pars, i_power, resource_conversion, resource_assimilation, assimilation_eff, scale_uptake, scale_assim, omega_e, trait_loci, mu, sigma_z, runs, pre_post_change, print_steps, log_steps, output_file)
     end
 end
 
@@ -182,9 +183,9 @@ mutable struct Ecol_parameters
         in_rate = in_rate*scale_uptake
         uptake_pars[1] /= scale_uptake
         if init.spec_dist == :X
-            species = grid.X*trophic_levels # different species for different X
+            species = grid.X*trophic_levels*init.spec_dens # different species for different X
         else
-            species = patches*trophic_levels # different species in each patch
+            species = patches*trophic_levels*init.spec_dens # different species in each patch
             # species = 1
         end
         tl_species = [(s - 1) % trophic_levels + 1 for s = 1:species]
