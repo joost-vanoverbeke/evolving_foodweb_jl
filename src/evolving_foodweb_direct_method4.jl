@@ -820,7 +820,7 @@ end
 
 function log_titles(f)
     write(f, 
-    "grid_X;grid_Y;torus_X;torus_Y;patches;m;rho;" * 
+    "grid_X;grid_Y;torus_X;torus_Y;patches;nbr_species;m;rho;" * 
     "CC;time_CC;pre_CC;post_CC;e_step_local;" * 
     "nbr_loci;sigma_z;mu;omega_e;d;rep_type;" * 
     "run;time;patch;X;Y;environment;resource;" * 
@@ -833,7 +833,7 @@ function log_results(f, world::World, ecol::Ecol_parameters, evol::Evol_paramete
         patch = world.patches[p]
         tl = ecol.tl_species[s]
         write(f, 
-        "$(ecol.grid.X);$(ecol.grid.Y);$(ecol.torus.X);$(ecol.torus.Y);$(ecol.patches);$(ecol.m);$(ecol.rho);" *
+        "$(ecol.grid.X);$(ecol.grid.Y);$(ecol.torus.X);$(ecol.torus.Y);$(ecol.patches);$(ecol.species);$(ecol.m);$(ecol.rho);" *
         "$(ecol.CC);$(ecol.time_CC);$(run.pre_change);$(run.post_change);$(ecol.env_step_local);" * 
         "$(evol.trait_loci);$(evol.sigma_z);$(evol.mu);$(evol.omega_e);$(ecol.d);$(ecol.rep_type);" * 
         "$(r);$(t);$(p);$(patch.X);$(patch.Y);$(patch.environment);$(patch.resource);" * 
