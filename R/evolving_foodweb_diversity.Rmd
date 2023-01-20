@@ -16,20 +16,7 @@ library(colorspace)
 ```
 
 
-```{r colors}
-
-cbPalette <- c("#E69F00", # orange
-               "#56B4E9", # lightblue
-               "#009E73", # green
-               "#F0E442", # yellow
-               "#0072B2", # darkblue
-               "#D55E00", # red
-               "#CC79A7") # cyan
-
-```
-
-
-```{r data}
+```{r data, eval=FALSE}
 
 data <- 
   read_delim("../results/output_test3.csv", 
@@ -116,10 +103,140 @@ data <-
   mutate(scenario = str_c(e_step_CC, time_CC, sep = "_")) 
 
 
+(files_asex <- 
+  str_subset(str_subset(list.files("../results/tl1_X5_Y5/", full.names = TRUE), ".tar.gz", negate = TRUE), "asex"))
+(files_sex <- 
+  str_subset(str_subset(list.files("../results/tl1_X5_Y5/", full.names = TRUE), ".tar.gz", negate = TRUE), "asex", negate = TRUE))
+
+data_div <- NULL
+data_shift <- NULL
+# for (f in files_asex) {
+for (f in files_sex) {
+  
+  cat("processing file \n", "  ", f, "\n")
+  
+  data <- 
+    read_delim(f, delim = ";") %>% 
+    filter(time%%500==0)
+
+  gc()
+
+  data_div_alpha <-
+    data %>% 
+    # mutate(run = ordered(run)) %>% 
+    filter(N > 0) %>% 
+    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, patch, X, Y, trophic_level) %>%
+    # group_by(mu, run, time, patch, X, Y) %>% 
+    mutate(p_N = N/sum(N),
+           p_biomass = biomass/sum(biomass)) %>%
+    summarise(alpha_H_N = -sum(p_N*log(p_N)),
+              alpha_H_biomass = -sum(p_biomass*log(p_biomass))) %>% 
+    ungroup() %>% 
+    mutate(# alpha_div_N = exp(alpha_H_N),
+      alpha_div_biomass = exp(alpha_H_biomass)) %>%
+    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, trophic_level) %>%
+    # group_by(mu, run, time) %>% 
+    summarise(alpha_div_N = exp((-1/n())*sum(-alpha_H_N)),
+              alpha_div_biomass = exp((-1/n())*sum(-alpha_H_biomass)),
+              alpha_H_N = mean(alpha_H_N),
+              alpha_H_biomass = mean(alpha_H_biomass),
+              # alpha_div_N = mean(alpha_div_N),
+              # alpha_div_biomass = mean(alpha_div_biomass)
+    ) %>% 
+    ungroup()
+  
+  data_div_gamma <-
+    data %>% 
+    # mutate(run = ordered(run)) %>% 
+    filter(N > 0) %>% 
+    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, species, trophic_level) %>%
+    # group_by(mu, run, time, species) %>%
+    summarise(N = sum(N),
+              biomass = sum(biomass)) %>% 
+    ungroup() %>% 
+    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, trophic_level) %>%
+    # group_by(mu, run, time) %>%
+    mutate(p_N = N/sum(N),
+           p_biomass = biomass/sum(biomass)) %>%
+    summarise(gamma_H_N = -sum(p_N*log(p_N)),
+              gamma_H_biomass = -sum(p_biomass*log(p_biomass))) %>% 
+    ungroup() %>% 
+    mutate(gamma_div_N = exp(gamma_H_N),
+           gamma_div_biomass = exp(gamma_H_biomass)) %>% 
+    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, trophic_level) %>%
+    # group_by(mu, run, time) %>% 
+    summarise(gamma_H_N = mean(gamma_H_N),
+              gamma_H_biomass = mean(gamma_H_biomass),
+              gamma_div_N = mean(gamma_div_N),
+              gamma_div_biomass = mean(gamma_div_biomass)) %>% 
+    ungroup()
+  
+  
+  data_div_join <-
+    data_div_alpha %>% 
+    left_join(data_div_gamma) %>% 
+    mutate(beta_H_N = gamma_H_N-alpha_H_N,
+           beta_H_biomass = gamma_H_biomass-alpha_H_biomass,
+           beta_div_N = gamma_div_N/alpha_div_N,
+           beta_div_biomass = gamma_div_biomass/alpha_div_biomass) %>% 
+    select(-run) %>% 
+    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, time, trophic_level) %>%
+    # group_by(mu, time) %>% 
+    summarise(across(.fns = list(mean = ~mean(., na.rm = TRUE), var = ~var(., na.rm = TRUE)))) %>% 
+    ungroup()
+  
+  data_div <-
+    data_div %>% 
+    bind_rows(data_div_join)
+
+  rm(data_div_alpha, data_div_gamma, data_div_join)  
+  gc()
+  
+  data_shift_f <-
+    data %>% 
+    # mutate(run = ordered(run)) %>% 
+    filter(N > 0) %>% 
+    mutate(X = as.numeric(as.character(X))) %>% 
+    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, species, trophic_level) %>%
+    summarise(X_mean = mean(rep(X,N)),
+              X_spread = sqrt(var(rep(X,N)))) %>% 
+    ungroup() %>% 
+    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, species, trophic_level) %>%
+    mutate(X_shift = abs(X_mean - X_mean[time == 0])) %>% 
+    ungroup() %>% 
+    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, trophic_level) %>%
+    summarise(X_spread = mean(X_spread),
+              X_shift = mean(X_shift)) %>% 
+    ungroup()
+  
+  data_shift <-
+    data_shift %>% 
+    bind_rows(
+      data_shift_f %>% 
+        group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, time, trophic_level) %>% 
+        summarise(across(c(X_spread, X_shift), list(mean = ~mean(., na.rm = TRUE), var = ~var(., na.rm = TRUE)))) %>% 
+        ungroup())
+
+  rm(data, data_shift_f)  
+  gc()
+
+}
+
+data_div_asex <- data_div
+data_shift_asex <- data_shift
+save(data_div_asex, data_shift_asex, file = "data_tl1_X5_Y5_asex.RData")
+
+data_div_sex <- data_div
+data_shift_sex <- data_shift
+save(data_div_sex, data_shift_sex, file = "data_tl1_X5_Y5_sex.RData")
+
+rm(list = ls())
+gc()
+
 ```
 
 
-```{r calculations}
+```{r calculations, eval=FALSE}
 
 tls <- max(data$trophic_level)  
 nX <- max(data$X)
@@ -238,6 +355,27 @@ data_shift_mean <-
 ```
 
 
+```{r load calculations}
+
+load("data_tl1_X5_Y5_asex.RData")
+load("data_tl1_X5_Y5_sex.RData")
+
+```
+
+
+```{r colors}
+
+cbPalette <- c("#E69F00", # orange
+               "#56B4E9", # lightblue
+               "#009E73", # green
+               "#F0E442", # yellow
+               "#0072B2", # darkblue
+               "#D55E00", # red
+               "#CC79A7") # cyan
+
+```
+
+
 ```{r figuren density}
 
 for(r in levels(data$run)) {
@@ -284,15 +422,196 @@ for(r in levels(data$run)) {
 
 ```{r figuren div}
 
-data_div_alpha %>% 
-  ggplot(aes(time, alpha_div_N)) +
-  geom_line(aes(color = run)) +
-  facet_grid(trophic_level ~ mu, labeller = "label_both")
+# for(st in unique(data_div_asex$e_step_local)) {
+for(mg in unique(data_div_asex$m)) {
+  p <-
+    data_div_asex %>% 
+    mutate(mu = ordered(mu),
+           e_step_local = ordered(e_step_local)) %>% 
+    filter(#time > 0,
+           e_step_local == 0.001,
+           m == mg) %>% 
+    ggplot(aes(time, alpha_div_N_mean)) +
+    geom_line(aes(color = mu, linetype = e_step_local), size = 1) +
+    geom_ribbon(aes(ymin = alpha_div_N_mean - 2*sqrt(alpha_div_N_var), 
+                    ymax = alpha_div_N_mean + 2*sqrt(alpha_div_N_var), 
+                    fill = mu),
+                alpha = 0.2) +
+    scale_color_brewer(palette = "Dark2") +
+    scale_fill_brewer(palette = "Dark2") +
+    ggtitle(str_c("m = ", mg)) +
+    facet_grid(CC ~ time_CC, labeller = "label_both") +
+    theme_bw()
+  print(p)
+}
+# }
 
-data_div_gamma %>% 
-  ggplot(aes(time, gamma_div_N)) +
-  geom_line(aes(color = run)) +
-  facet_grid(trophic_level ~ mu, labeller = "label_both")
+
+for(mg in unique(data_div_asex$m)) {
+  p <-
+    data_div_asex %>% 
+    mutate(mu = ordered(mu),
+           e_step_local = ordered(e_step_local)) %>% 
+    filter(time > 0,
+           e_step_local == 0.001,
+           m == mg) %>% 
+    ggplot(aes(time, gamma_div_N_mean)) +
+    geom_line(aes(color = mu, linetype = e_step_local), size = 1) +
+    geom_ribbon(aes(ymin = gamma_div_N_mean - 2*sqrt(gamma_div_N_var), 
+                    ymax = gamma_div_N_mean + 2*sqrt(gamma_div_N_var), 
+                    fill = mu),
+                alpha = 0.2) +
+    scale_color_brewer(palette = "Dark2") +
+    scale_fill_brewer(palette = "Dark2") +
+    ggtitle(str_c("m = ", mg)) +
+    facet_grid(CC ~ time_CC, labeller = "label_both") +
+    theme_bw()
+  print(p)
+}
+
+
+for(mg in unique(data_div_asex$m)) {
+  p <-
+    data_div_asex %>% 
+    mutate(mu = ordered(mu),
+           e_step_local = ordered(e_step_local)) %>% 
+    filter(time > 0,
+           e_step_local == 0.001,
+           m == mg) %>% 
+    ggplot(aes(time, beta_div_N_mean)) +
+    geom_line(aes(color = mu, linetype = e_step_local), size = 1) +
+    geom_ribbon(aes(ymin = beta_div_N_mean - 2*sqrt(beta_div_N_var), 
+                    ymax = beta_div_N_mean + 2*sqrt(beta_div_N_var), 
+                    fill = mu),
+                alpha = 0.2) +
+    scale_color_brewer(palette = "Dark2") +
+    scale_fill_brewer(palette = "Dark2") +
+    ggtitle(str_c("m = ", mg)) +
+    facet_grid(CC ~ time_CC, labeller = "label_both") +
+    theme_bw()
+  print(p)
+}
+
+
+for(mg in unique(data_div_asex$m)) {
+  p <-
+    data_div_asex %>% 
+    mutate(mu = ordered(mu),
+           e_step_local = ordered(e_step_local)) %>% 
+    filter(time == pre_CC,
+           e_step_local == 0.001,
+           m == mg) %>% 
+    group_by(CC, time_CC, e_step_local, rep_type, m, trophic_level, time) %>% 
+    summarise(alpha_div_ratio = alpha_div_N_mean[mu == 1e-4]/alpha_div_N_mean[mu == 0],
+              beta_div_ratio = beta_div_N_mean[mu == 1e-4]/beta_div_N_mean[mu == 0],
+              gamma_div_ratio = gamma_div_N_mean[mu == 1e-4]/gamma_div_N_mean[mu == 0]) %>% 
+    ungroup() %>% 
+    pivot_longer(cols = contains("div_ratio"),
+                 names_to = "level",
+                 values_to = "div_ratio") %>% 
+    mutate(level = str_remove(level, "_div_ratio")) %>% 
+    ggplot(aes(level, div_ratio)) +
+    geom_col(aes(fill = level)) +
+    scale_y_log10() +
+    scale_color_brewer(palette = "Dark2") +
+    scale_fill_brewer(palette = "Dark2") +
+    ggtitle(str_c("m = ", mg)) +
+    facet_grid(CC ~ time_CC, labeller = "label_both") +
+    theme_bw()
+  print(p)
+}
+
+
+for(mg in unique(data_div_asex$m)) {
+  p <-
+    data_div_asex %>% 
+    mutate(mu = ordered(mu),
+           e_step_local = ordered(e_step_local)) %>% 
+    filter(time == pre_CC + time_CC + post_CC,
+           e_step_local == 0.001,
+           m == mg) %>% 
+    group_by(CC, time_CC, e_step_local, rep_type, m, trophic_level) %>% 
+    summarise(alpha_div_ratio = alpha_div_N_mean[mu == 1e-4]/alpha_div_N_mean[mu == 0],
+              beta_div_ratio = beta_div_N_mean[mu == 1e-4]/beta_div_N_mean[mu == 0],
+              gamma_div_ratio = gamma_div_N_mean[mu == 1e-4]/gamma_div_N_mean[mu == 0]) %>% 
+    ungroup() %>% 
+    pivot_longer(cols = contains("div_ratio"),
+                 names_to = "level",
+                 values_to = "div_ratio") %>% 
+    mutate(level = str_remove(level, "_div_ratio")) %>% 
+    ggplot(aes(level, div_ratio)) +
+    geom_col(aes(fill = level)) +
+    scale_y_log10() +
+    scale_color_brewer(palette = "Dark2") +
+    scale_fill_brewer(palette = "Dark2") +
+    ggtitle(str_c("m = ", mg)) +
+    facet_grid(CC ~ time_CC, labeller = "label_both") +
+    theme_bw()
+  print(p)
+}
+
+
+for(mg in unique(data_div_asex$m)) {
+  p <-
+    data_div_asex %>% 
+    mutate(mu = ordered(mu),
+           e_step_local = ordered(e_step_local),
+           total_time = pre_CC + time_CC + post_CC) %>% 
+    filter(time == pre_CC | time == total_time,
+           e_step_local == 0.001,
+           m == mg) %>% 
+    mutate(time = ifelse(time == pre_CC, "pre_CC", "end"),
+           time = factor(time, levels = c("pre_CC", "end"))) %>% 
+    group_by(CC, time_CC, e_step_local, rep_type, m, trophic_level, time) %>% 
+    summarise(alpha_div_ratio = alpha_div_N_mean[mu == 1e-4]/alpha_div_N_mean[mu == 0],
+              beta_div_ratio = beta_div_N_mean[mu == 1e-4]/beta_div_N_mean[mu == 0],
+              gamma_div_ratio = gamma_div_N_mean[mu == 1e-4]/gamma_div_N_mean[mu == 0]) %>% 
+    ungroup() %>% 
+    pivot_longer(cols = contains("div_ratio"),
+                 names_to = "level",
+                 values_to = "div_ratio") %>% 
+    mutate(level = str_remove(level, "_div_ratio")) %>% 
+    ggplot(aes(level, div_ratio)) +
+    geom_col(aes(fill = ordered(time)), position = "dodge") +
+    scale_y_log10() +
+    scale_color_brewer(palette = "Dark2") +
+    scale_fill_brewer(palette = "Dark2") +
+    ggtitle(str_c("m = ", mg)) +
+    facet_grid(CC ~ time_CC, labeller = "label_both") +
+    theme_bw()
+  print(p)
+}
+
+
+for(mg in unique(data_div_asex$m)) {
+  p <-
+    data_div_asex %>% 
+    mutate(mu = ordered(mu),
+           e_step_local = ordered(e_step_local),
+           total_time = pre_CC + time_CC + post_CC) %>% 
+    filter(time == pre_CC | time == total_time,
+           e_step_local == 0.001,
+           m == mg) %>% 
+    group_by(CC, time_CC, e_step_local, rep_type, mu, m, trophic_level) %>% 
+    summarise(alpha_div_ratio = alpha_div_N_mean[time == total_time]/alpha_div_N_mean[time == pre_CC],
+              beta_div_ratio = beta_div_N_mean[time == total_time]/beta_div_N_mean[time == pre_CC],
+              gamma_div_ratio = gamma_div_N_mean[time == total_time]/gamma_div_N_mean[time == pre_CC]) %>% 
+    ungroup() %>% 
+    pivot_longer(cols = contains("div_ratio"),
+                 names_to = "level",
+                 values_to = "div_ratio") %>% 
+    mutate(level = str_remove(level, "_div_ratio")) %>% 
+    ggplot(aes(level, div_ratio)) +
+    geom_col(aes(fill = mu), position = "dodge") +
+    scale_y_log10() +
+    scale_color_brewer(palette = "Dark2") +
+    scale_fill_brewer(palette = "Dark2") +
+    ggtitle(str_c("m = ", mg)) +
+    facet_grid(CC ~ time_CC, labeller = "label_both") +
+    theme_bw()
+  print(p)
+}
+
 
 data_div %>% 
   select(trophic_level, mu, time, contains("div_N")) %>% 
@@ -332,53 +651,56 @@ data_div %>%
   facet_grid(level ~ trophic_level + grid_Y, labeller = "label_both", scales = "free_y") +
   scale_x_discrete(labels = NULL)
 
-data_div %>% 
-  select(trophic_level, grid_Y, mu, time, contains("div_N")) %>% 
-  # filter(time == 11000) %>% 
-  filter(time == max(time)) %>%
-  # filter(time == 5000 | time == max(time)) %>% 
-  group_by(trophic_level, grid_Y, time) %>% 
-  summarise(alpha_div_ratio = alpha_div_N[mu == 1e-4]/alpha_div_N[mu == 0],
-            beta_div_ratio = beta_div_N[mu == 1e-4]/beta_div_N[mu == 0],
-            gamma_div_ratio = gamma_div_N[mu == 1e-4]/gamma_div_N[mu == 0]) %>% 
-  ungroup() %>% 
-  pivot_longer(cols = contains("div_ratio"),
-               names_to = "level",
-               values_to = "div_ratio") %>% 
-  mutate(level = str_remove(level, "_div_ratio"),
-         time = ordered(time)) %>% 
-  ggplot(aes(level, div_ratio)) +
-  geom_col() +
-  scale_y_log10() +
-  # scale_y_log10(breaks = c(0.5,0.8,1,1.2,1.5)) +
-  facet_grid(trophic_level ~ grid_Y, labeller = "label_both")
-
 ```
 
 
 ```{r figuren shift & spread}
 
-data_shift %>% 
-  ggplot(aes(time, X_shift)) +
-  geom_line(aes(color = run)) +
-  facet_grid(trophic_level ~ mu, labeller = "label_both")
+for(mg in unique(data_div_asex$m)) {
+  p <-
+    data_shift_asex %>% 
+    mutate(mu = ordered(mu),
+           e_step_local = ordered(e_step_local)) %>% 
+    filter(#time > 0,
+           e_step_local == 0.002,
+           m == mg) %>% 
+    ggplot(aes(time, X_shift_mean)) +
+    geom_line(aes(color = mu, linetype = e_step_local), size = 1) +
+    geom_ribbon(aes(ymin = X_shift_mean - 2*sqrt(X_shift_var), 
+                    ymax = X_shift_mean + 2*sqrt(X_shift_var), 
+                    fill = mu),
+                alpha = 0.2) +
+    scale_color_brewer(palette = "Dark2") +
+    scale_fill_brewer(palette = "Dark2") +
+    ggtitle(str_c("m = ", mg)) +
+    facet_grid(CC ~ time_CC, labeller = "label_both") +
+    theme_bw()
+  print(p)
+}
 
-data_shift_mean %>% 
-  filter(time == max(time)) %>% 
-  ggplot(aes(ordered(mu), X_shift)) +
-  geom_col() +
-  facet_grid(trophic_level ~ scenario, labeller = "label_both")
 
-data_shift %>% 
-  ggplot(aes(time, X_spread)) +
-  geom_line(aes(color = run)) +
-  facet_grid(trophic_level ~ mu, labeller = "label_both")
+for(mg in unique(data_div_asex$m)) {
+  p <-
+    data_shift_asex %>% 
+    mutate(mu = ordered(mu),
+           e_step_local = ordered(e_step_local)) %>% 
+    filter(#time > 0,
+           e_step_local == 0.001,
+           m == mg) %>% 
+    ggplot(aes(time, X_spread_mean)) +
+    geom_line(aes(color = mu, linetype = e_step_local), size = 1) +
+    geom_ribbon(aes(ymin = X_spread_mean - 2*sqrt(X_spread_var), 
+                    ymax = X_spread_mean + 2*sqrt(X_spread_var), 
+                    fill = mu),
+                alpha = 0.2) +
+    scale_color_brewer(palette = "Dark2") +
+    scale_fill_brewer(palette = "Dark2") +
+    ggtitle(str_c("m = ", mg)) +
+    facet_grid(CC ~ time_CC, labeller = "label_both") +
+    theme_bw()
+  print(p)
+}
 
-data_shift_mean %>% 
-  filter(time == max(time)) %>% 
-  ggplot(aes(ordered(mu), X_spread)) +
-  geom_col() +
-  facet_grid(trophic_level ~ scenario, labeller = "label_both")
 
 ```
 
