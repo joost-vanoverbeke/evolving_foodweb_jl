@@ -1,0 +1,240 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r libraries}
+
+library(tidyverse)
+library(magrittr)
+# library(ggpubr)
+# library(RColorBrewer)
+library(colorspace)
+
+```
+
+
+```{r colors}
+
+cbPalette <- c("#E69F00", # orange
+               "#56B4E9", # lightblue
+               "#009E73", # green
+               "#F0E442", # yellow
+               "#0072B2", # darkblue
+               "#D55E00", # red
+               "#CC79A7") # cyan
+
+```
+
+
+```{r data}
+
+data <- 
+  read_delim("../results/output_X5_Y5_tl2_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
+             delim = ";") 
+
+data <- 
+  data %>% 
+  bind_rows(
+    read_delim("../results/output_X1_Y5_tl2_no_match_disp.csv", 
+               delim = ";") %>% 
+      mutate(match_sd = 100, nbr_species = 20)
+  )
+
+```
+
+
+```{r figuren}
+
+for(sd in unique(data$match_sd)) {
+  for(mgr in unique(data$m)) {
+    for(r in unique(data$run)) {
+      data %>%
+        filter(
+          # time >= 100,
+          run == r,
+          m == mgr,
+          match_sd == sd) %>%
+        mutate(match = factor(match),
+               Y = factor(Y),
+               trophic_level = factor(trophic_level)) %>% 
+        group_by(run, m, match_sd, time, Y, trophic_level) %>%
+        summarise(N = sum(N)) %>% 
+        ungroup() %>% 
+        {ggplot(., aes(x = time, y = N+1)) +
+            geom_line(aes(linetype = trophic_level), size = 1) +
+            scale_y_log10() +
+            scale_color_discrete_qualitative() +
+            facet_grid(~ Y, labeller = "label_both") +
+            ggtitle(str_c("match_sd ", sd, "; m ", mgr, "; run ", r)) +
+            guides(color = "none")} %>% 
+        print()
+    }
+  }
+}
+
+
+data %>%
+  mutate(match = factor(match),
+         Y = factor(Y),
+         trophic_level = factor(trophic_level)) %>% 
+  group_by(run, m, match_sd, time, Y, trophic_level) %>%
+  summarise(N = sum(N)) %>% 
+  ungroup() %>% 
+  ggplot(aes(x = time, y = N+1)) +
+  # geom_line(aes(group = Y:trophic_level, color = Y, linetype = trophic_level), size = 1) +
+  geom_smooth(aes(group = trophic_level, color = trophic_level, linetype = trophic_level), size = 1) +
+  scale_y_log10() +
+  scale_color_discrete_qualitative() +
+  facet_grid(match_sd ~ m, labeller = "label_both")
+
+        
+for(sd in unique(data$match_sd)) {
+  for(mgr in unique(data$m)) {
+    for(r in unique(data$run)) {
+      dat <-
+        data %>%
+        filter(
+          # time >= 100,
+          run == r,
+          m == mgr,
+          match_sd == sd) %>%
+        mutate(match = factor(match),
+               Y = factor(Y),
+               trophic_level = factor(trophic_level)) 
+      if(nrow(dat) > 0) {
+        dat %>% 
+          {ggplot(., aes(x = time, y = N+1)) +
+              geom_line(aes(color = match, linetype = trophic_level), size = 1) +
+              scale_y_log10() +
+              scale_color_discrete_qualitative() +
+              facet_grid(Y ~ match, labeller = "label_both") +
+              ggtitle(str_c("match_sd ", sd, "; m ", mgr, "; run ", r)) +
+              guides(color = "none")} %>% 
+          print()
+      }
+    }
+  }
+}
+
+```
+
+
+```{r calculations}
+
+tls <- max(data$trophic_level)  
+nX <- max(data$X)
+nY <- max(data$Y)
+
+data <- 
+  data %>% 
+  # filter(run == 1) %>% 
+  mutate(origin = (species+tls-1)%/%tls,
+         origin_X = ((origin-1)%%nX)+1,
+         origin_Y = ((origin-1)%/%nX)+1,
+         origin = ordered(origin),
+         origin_X = ordered(origin_X),
+         origin_Y = ordered(origin_Y),
+         species = ordered(species),
+         trophic_level = ordered(trophic_level),
+         run = ordered(run),
+         patch = ordered(patch),
+         X = ordered(X),
+         Y = ordered(Y))
+
+data_origin <-
+  data %>%
+  distinct(species, trophic_level, origin, origin_X, origin_Y)
+
+
+data_div_alpha <-
+  data %>% 
+  mutate(run = ordered(run)) %>% 
+  filter(N > 0) %>% 
+  group_by(m, match_sd, mu, run, time, patch, X, Y, trophic_level) %>%
+  # group_by(mu, run, time, patch, X, Y) %>% 
+  mutate(p_N = N/sum(N),
+         p_biomass = biomass/sum(biomass)) %>%
+  summarise(alpha_H_N = -sum(p_N*log(p_N)),
+            alpha_H_biomass = -sum(p_biomass*log(p_biomass))) %>% 
+  ungroup() %>% 
+  mutate(# alpha_div_N = exp(alpha_H_N),
+         alpha_div_biomass = exp(alpha_H_biomass)) %>%
+  group_by(m, match_sd, mu, run, time, trophic_level) %>%
+  # group_by(mu, run, time) %>% 
+  summarise(alpha_div_N = exp((-1/n())*sum(-alpha_H_N)),
+            alpha_div_biomass = exp((-1/n())*sum(-alpha_H_biomass)),
+            alpha_H_N = mean(alpha_H_N),
+            alpha_H_biomass = mean(alpha_H_biomass),
+            # alpha_div_N = mean(alpha_div_N),
+            # alpha_div_biomass = mean(alpha_div_biomass)
+            ) %>% 
+  ungroup()
+  
+data_div_gamma <-
+  data %>% 
+  mutate(run = ordered(run)) %>% 
+  filter(N > 0) %>% 
+  group_by(m, match_sd, mu, run, time, species, trophic_level) %>%
+  # group_by(mu, run, time, species) %>%
+  summarise(N = sum(N),
+            biomass = sum(biomass)) %>% 
+  ungroup() %>% 
+  group_by(m, match_sd, mu, run, time, trophic_level) %>%
+  # group_by(mu, run, time) %>%
+  mutate(p_N = N/sum(N),
+         p_biomass = biomass/sum(biomass)) %>%
+  summarise(gamma_H_N = -sum(p_N*log(p_N)),
+            gamma_H_biomass = -sum(p_biomass*log(p_biomass))) %>% 
+  ungroup() %>% 
+  mutate(gamma_div_N = exp(gamma_H_N),
+         gamma_div_biomass = exp(gamma_H_biomass)) %>% 
+  group_by(m, match_sd, mu, run, time, trophic_level) %>%
+  # group_by(mu, run, time) %>% 
+  summarise(gamma_H_N = mean(gamma_H_N),
+            gamma_H_biomass = mean(gamma_H_biomass),
+            gamma_div_N = mean(gamma_div_N),
+            gamma_div_biomass = mean(gamma_div_biomass)) %>% 
+  ungroup()
+
+
+data_div <-
+  data_div_alpha %>% 
+  left_join(data_div_gamma) %>% 
+  mutate(beta_H_N = gamma_H_N-alpha_H_N,
+         beta_H_biomass = gamma_H_biomass-alpha_H_biomass,
+         beta_div_N = gamma_div_N/alpha_div_N,
+         beta_div_biomass = gamma_div_biomass/alpha_div_biomass) %>% 
+  select(-run) %>% 
+  group_by(m, match_sd, mu, time, trophic_level) %>%
+  # group_by(mu, time) %>% 
+  summarise(across(.fns = ~mean(.))) %>% 
+  ungroup() %>% 
+  mutate(mu = ordered(mu))
+
+```
+
+
+
+```{r figuren div}
+
+data_div %>% 
+  ggplot(aes(time, alpha_div_N)) +
+  geom_line(aes(color = trophic_level)) +
+  facet_grid(match_sd ~ m, labeller = "label_both")
+
+data_div %>% 
+  ggplot(aes(time, gamma_div_N)) +
+  geom_line(aes(color = trophic_level)) +
+  facet_grid(match_sd ~ m, labeller = "label_both")
+
+data_div %>% 
+  ggplot(aes(time, beta_div_N)) +
+  geom_line(aes(color = trophic_level)) +
+  facet_grid(match_sd ~ m, labeller = "label_both")
+
+```
+
+
