@@ -18,105 +18,37 @@ library(colorspace)
 
 ```{r data, eval=FALSE}
 
-data <- 
-  read_delim("../results/output_test3.csv", 
-             delim = ";") %>% 
-  mutate(scenario = str_c(e_step_CC, time_CC, sep = "_")) 
-
-
-data <- 
-  read_delim("../results/output_X11_Y3_tl1_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_2e3.csv", 
-             delim = ";") %>% 
-  bind_rows(read_delim("../results/output_X11_Y3_tl1_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_1e3.csv", 
-                       delim = ";")) %>% 
-  bind_rows(read_delim("../results/output_X11_Y3_tl1_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_2e3.csv", 
-                       delim = ";")) %>% 
-  bind_rows(read_delim("../results/output_X11_Y3_tl1_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_sex_CC2e-4_1e3.csv", 
-                       delim = ";")) %>% 
-  mutate(scenario = str_c(e_step_CC, time_CC, sep = "_")) 
-
-data <- 
-  read_delim("../results/output_X11_Y4_tl1_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
-             delim = ";") %>% 
-  bind_rows(read_delim("../results/output_X11_Y4_tl1_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
-                       delim = ";")) %>% 
-  mutate(scenario = str_c(e_step_CC, time_CC, sep = "_")) 
-
-data <- 
-  read_delim("../results/output_X11_Y4_tl2_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
-             delim = ";") %>% 
-  bind_rows(read_delim("../results/output_X11_Y4_tl2_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
-                       delim = ";")) %>% 
-  mutate(scenario = str_c(e_step_CC, time_CC, sep = "_")) 
-
-
-data <- 
-  read_delim("../results/output_X5_Y3_tl2_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
-             delim = ";") %>% 
-  bind_rows(read_delim("../results/output_X5_Y3_tl2_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
-                       delim = ";")) %>% 
-  mutate(scenario = str_c(e_step_CC, time_CC, sep = "_")) 
-
-
-data <- 
-  read_delim("../results/output_X5_Y5_tl1_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
-             delim = ";") %>% 
-  bind_rows(read_delim("../results/output_X5_Y5_tl1_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
-                       delim = ";")) %>% 
-  bind_rows(read_delim("../results/output_X5_Y3_tl1_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv",
-                       delim = ";")) %>%
-  bind_rows(read_delim("../results/output_X5_Y3_tl1_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv",
-                       delim = ";")) %>%
-  mutate(scenario = str_c(e_step_CC, time_CC, sep = "_")) 
-
-data <- 
-  read_delim("../results/output_X5_Y5_tl1_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specX_sex_CC2e-4_1e3.csv", 
-             delim = ";") %>% 
-  bind_rows(read_delim("../results/output_X5_Y5_tl1_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specX_sex_CC2e-4_1e3.csv", 
-                       delim = ";")) %>% 
-  bind_rows(read_delim("../results/output_X5_Y3_tl1_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specX_sex_CC2e-4_1e3.csv",
-                       delim = ";")) %>%
-  bind_rows(read_delim("../results/output_X5_Y3_tl1_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specX_sex_CC2e-4_1e3.csv",
-                       delim = ";")) %>%
-  mutate(scenario = str_c(e_step_CC, time_CC, sep = "_")) 
-
-
-data <- 
-  read_delim("../results/output_X5_Y5_tl1_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
-             delim = ";") %>% 
-  bind_rows(read_delim("../results/output_X5_Y5_tl1_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
-                       delim = ";")) %>% 
-  mutate(scenario = str_c(e_step_CC, time_CC, sep = "_")) 
-
-data <- 
-  read_delim("../results/output_X5_Y5_tl2_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
-             delim = ";") %>% 
-  bind_rows(read_delim("../results/output_X5_Y5_tl2_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
-                       delim = ";")) %>% 
-  mutate(scenario = str_c(e_step_CC, time_CC, sep = "_")) 
-
-data <- 
-  read_delim("../results/output_X5_Y5_tl3_loci10_mu0_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
-             delim = ";") %>% 
-  bind_rows(read_delim("../results/output_X5_Y5_tl3_loci10_mu1e-4_oe25e-2_d2e-1_dp5e-1_Yrange1e-1_stepLocal2e-3_specPatch_sex_CC2e-4_1e3.csv", 
-                       delim = ";")) %>% 
-  mutate(scenario = str_c(e_step_CC, time_CC, sep = "_")) 
-
-
-(files_asex <- 
+(files <- 
   str_subset(str_subset(list.files("../results/tl1_X5_Y5/", full.names = TRUE), ".tar.gz", negate = TRUE), "asex"))
-(files_sex <- 
+(files <- 
   str_subset(str_subset(list.files("../results/tl1_X5_Y5/", full.names = TRUE), ".tar.gz", negate = TRUE), "asex", negate = TRUE))
+(files <- 
+  str_subset(str_subset(list.files("../results/tl1_X5_Y5/", full.names = TRUE), ".tar.gz", negate = TRUE), "dens2"))
 
-data_div <- NULL
-data_shift <- NULL
-# for (f in files_asex) {
-for (f in files_sex) {
+
+for (f in files) {
   
   cat("processing file \n", "  ", f, "\n")
   
   data <- 
     read_delim(f, delim = ";") %>% 
+    filter(time%%500==0)
+  data %>% 
+    write_delim(f, delim = ";")
+
+  rm(data)
+  gc()
+}
+
+
+data_div <- NULL
+data_shift <- NULL
+for (f in files) {
+  
+  cat("processing file \n", "  ", f, "\n")
+  
+  data <- 
+    read_delim(files[1], delim = ";") %>% 
     filter(time%%500==0)
 
   gc()
@@ -125,7 +57,7 @@ for (f in files_sex) {
     data %>% 
     # mutate(run = ordered(run)) %>% 
     filter(N > 0) %>% 
-    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, patch, X, Y, trophic_level) %>%
+    group_by(grid_X, grid_Y, patches, nbr_species, CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, patch, X, Y, trophic_level) %>%
     # group_by(mu, run, time, patch, X, Y) %>% 
     mutate(p_N = N/sum(N),
            p_biomass = biomass/sum(biomass)) %>%
@@ -134,7 +66,7 @@ for (f in files_sex) {
     ungroup() %>% 
     mutate(# alpha_div_N = exp(alpha_H_N),
       alpha_div_biomass = exp(alpha_H_biomass)) %>%
-    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, trophic_level) %>%
+    group_by(grid_X, grid_Y, patches, nbr_species, CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, trophic_level) %>%
     # group_by(mu, run, time) %>% 
     summarise(alpha_div_N = exp((-1/n())*sum(-alpha_H_N)),
               alpha_div_biomass = exp((-1/n())*sum(-alpha_H_biomass)),
@@ -149,12 +81,12 @@ for (f in files_sex) {
     data %>% 
     # mutate(run = ordered(run)) %>% 
     filter(N > 0) %>% 
-    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, species, trophic_level) %>%
+    group_by(grid_X, grid_Y, patches, nbr_species, CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, species, trophic_level) %>%
     # group_by(mu, run, time, species) %>%
     summarise(N = sum(N),
               biomass = sum(biomass)) %>% 
     ungroup() %>% 
-    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, trophic_level) %>%
+    group_by(grid_X, grid_Y, patches, nbr_species, CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, trophic_level) %>%
     # group_by(mu, run, time) %>%
     mutate(p_N = N/sum(N),
            p_biomass = biomass/sum(biomass)) %>%
@@ -162,14 +94,7 @@ for (f in files_sex) {
               gamma_H_biomass = -sum(p_biomass*log(p_biomass))) %>% 
     ungroup() %>% 
     mutate(gamma_div_N = exp(gamma_H_N),
-           gamma_div_biomass = exp(gamma_H_biomass)) %>% 
-    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, trophic_level) %>%
-    # group_by(mu, run, time) %>% 
-    summarise(gamma_H_N = mean(gamma_H_N),
-              gamma_H_biomass = mean(gamma_H_biomass),
-              gamma_div_N = mean(gamma_div_N),
-              gamma_div_biomass = mean(gamma_div_biomass)) %>% 
-    ungroup()
+           gamma_div_biomass = exp(gamma_H_biomass))
   
   
   data_div_join <-
@@ -180,7 +105,7 @@ for (f in files_sex) {
            beta_div_N = gamma_div_N/alpha_div_N,
            beta_div_biomass = gamma_div_biomass/alpha_div_biomass) %>% 
     select(-run) %>% 
-    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, time, trophic_level) %>%
+    group_by(grid_X, grid_Y, patches, nbr_species, CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, time, trophic_level) %>%
     # group_by(mu, time) %>% 
     summarise(across(.fns = list(mean = ~mean(., na.rm = TRUE), var = ~var(., na.rm = TRUE)))) %>% 
     ungroup()
@@ -197,14 +122,14 @@ for (f in files_sex) {
     # mutate(run = ordered(run)) %>% 
     filter(N > 0) %>% 
     mutate(X = as.numeric(as.character(X))) %>% 
-    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, species, trophic_level) %>%
+    group_by(grid_X, grid_Y, patches, nbr_species, CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, species, trophic_level) %>%
     summarise(X_mean = mean(rep(X,N)),
               X_spread = sqrt(var(rep(X,N)))) %>% 
     ungroup() %>% 
-    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, species, trophic_level) %>%
+    group_by(grid_X, grid_Y, patches, nbr_species, CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, species, trophic_level) %>%
     mutate(X_shift = abs(X_mean - X_mean[time == 0])) %>% 
     ungroup() %>% 
-    group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, trophic_level) %>%
+    group_by(grid_X, grid_Y, patches, nbr_species, CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, run, time, trophic_level) %>%
     summarise(X_spread = mean(X_spread),
               X_shift = mean(X_shift)) %>% 
     ungroup()
@@ -213,7 +138,7 @@ for (f in files_sex) {
     data_shift %>% 
     bind_rows(
       data_shift_f %>% 
-        group_by(CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, time, trophic_level) %>% 
+        group_by(grid_X, grid_Y, patches, nbr_species, CC, time_CC, pre_CC, post_CC, e_step_local, rep_type, m, mu, time, trophic_level) %>% 
         summarise(across(c(X_spread, X_shift), list(mean = ~mean(., na.rm = TRUE), var = ~var(., na.rm = TRUE)))) %>% 
         ungroup())
 
@@ -230,135 +155,61 @@ data_div_sex <- data_div
 data_shift_sex <- data_shift
 save(data_div_sex, data_shift_sex, file = "data_tl1_X5_Y5_sex.RData")
 
+data_div_dens2 <- data_div
+data_shift_dens2 <- data_shift
+save(data_div_dens2, data_shift_dens2, file = "data_tl1_X5_Y5_dens2.RData")
+
 rm(list = ls())
 gc()
 
 ```
 
 
-```{r calculations, eval=FALSE}
+```{r load calculations}
 
-tls <- max(data$trophic_level)  
-nX <- max(data$X)
-nY <- max(data$Y)
+load("data_tl1_X5_Y5_dens2.RData")
 
-data <- 
-  data %>% 
-  # filter(run == 1) %>% 
-  mutate(origin = (species+tls-1)%/%tls,
-         origin_X = ((origin-1)%%nX)+1,
-         origin_Y = ((origin-1)%/%nX)+1,
-         origin = ordered(origin),
-         origin_X = ordered(origin_X),
-         origin_Y = ordered(origin_Y),
-         species = ordered(species),
-         trophic_level = ordered(trophic_level),
-         run = ordered(run),
-         patch = ordered(patch),
-         X = ordered(X),
-         Y = ordered(Y))
-
-data_origin <-
-  data %>%
-  distinct(species, trophic_level, origin, origin_X, origin_Y)
+setting_dens2 <-
+  data_div_dens2 %>% 
+  distinct(CC, time_CC, nbr_species, e_step_local, rep_type, m, mu, trophic_level)
 
 
-data_div_alpha <-
-  data %>% 
-  mutate(run = ordered(run)) %>% 
-  filter(N > 0) %>% 
-  group_by(scenario, grid_X, grid_Y, mu, run, time, patch, X, Y, trophic_level) %>%
-  # group_by(mu, run, time, patch, X, Y) %>% 
-  mutate(p_N = N/sum(N),
-         p_biomass = biomass/sum(biomass)) %>%
-  summarise(alpha_H_N = -sum(p_N*log(p_N)),
-            alpha_H_biomass = -sum(p_biomass*log(p_biomass))) %>% 
-  ungroup() %>% 
-  mutate(# alpha_div_N = exp(alpha_H_N),
-         alpha_div_biomass = exp(alpha_H_biomass)) %>%
-  group_by(scenario, grid_X, grid_Y, mu, run, time, trophic_level) %>%
-  # group_by(mu, run, time) %>% 
-  summarise(alpha_div_N = exp((-1/n())*sum(-alpha_H_N)),
-            alpha_div_biomass = exp((-1/n())*sum(-alpha_H_biomass)),
-            alpha_H_N = mean(alpha_H_N),
-            alpha_H_biomass = mean(alpha_H_biomass),
-            # alpha_div_N = mean(alpha_div_N),
-            # alpha_div_biomass = mean(alpha_div_biomass)
-            ) %>% 
-  ungroup()
-  
-data_div_gamma <-
-  data %>% 
-  mutate(run = ordered(run)) %>% 
-  filter(N > 0) %>% 
-  group_by(scenario, grid_X, grid_Y, mu, run, time, species, trophic_level) %>%
-  # group_by(mu, run, time, species) %>%
-  summarise(N = sum(N),
-            biomass = sum(biomass)) %>% 
-  ungroup() %>% 
-  group_by(scenario, grid_X, grid_Y, mu, run, time, trophic_level) %>%
-  # group_by(mu, run, time) %>%
-  mutate(p_N = N/sum(N),
-         p_biomass = biomass/sum(biomass)) %>%
-  summarise(gamma_H_N = -sum(p_N*log(p_N)),
-            gamma_H_biomass = -sum(p_biomass*log(p_biomass))) %>% 
-  ungroup() %>% 
-  mutate(gamma_div_N = exp(gamma_H_N),
-         gamma_div_biomass = exp(gamma_H_biomass)) %>% 
-  group_by(scenario, grid_X, grid_Y, mu, run, time, trophic_level) %>%
-  # group_by(mu, run, time) %>% 
-  summarise(gamma_H_N = mean(gamma_H_N),
-            gamma_H_biomass = mean(gamma_H_biomass),
-            gamma_div_N = mean(gamma_div_N),
-            gamma_div_biomass = mean(gamma_div_biomass)) %>% 
-  ungroup()
+load("data_tl1_X5_Y5_asex.RData")
+data_div_asex <- 
+  data_div_asex %>% 
+  filter(CC %in% unique(setting_dens2$CC),
+         time_CC %in% unique(setting_dens2$time_CC),
+         e_step_local %in% unique(setting_dens2$e_step_local),
+         m %in% unique(setting_dens2$m),
+         mu %in% unique(setting_dens2$mu)) %>% 
+  mutate(grid_X = 5,
+         grid_Y = 5,
+         patches = 25,
+         nbr_species = 25)
+
+load("data_tl1_X5_Y5_sex.RData")
+data_div_sex <- 
+  data_div_sex %>% 
+  filter(CC %in% unique(setting_dens2$CC),
+         time_CC %in% unique(setting_dens2$time_CC),
+         e_step_local %in% unique(setting_dens2$e_step_local),
+         m %in% unique(setting_dens2$m),
+         mu %in% unique(setting_dens2$mu)) %>% 
+  mutate(grid_X = 5,
+         grid_Y = 5,
+         patches = 25,
+         nbr_species = 25)
+
+data_div <-
+  data_div_dens2 %>% 
+  bind_rows(data_div_asex) %>% 
+  bind_rows(data_div_sex)
 
 
 data_div <-
-  data_div_alpha %>% 
-  left_join(data_div_gamma) %>% 
-  mutate(beta_H_N = gamma_H_N-alpha_H_N,
-         beta_H_biomass = gamma_H_biomass-alpha_H_biomass,
-         beta_div_N = gamma_div_N/alpha_div_N,
-         beta_div_biomass = gamma_div_biomass/alpha_div_biomass) %>% 
-  select(-run) %>% 
-  group_by(scenario, grid_X, grid_Y, mu, time, trophic_level) %>%
-  # group_by(mu, time) %>% 
-  summarise(across(.fns = ~mean(.))) %>% 
-  ungroup() %>% 
-  mutate(mu = ordered(mu))
+  data_div_asex %>% 
+  bind_rows(data_div_sex)
 
-# analysis shift from origin
-data_shift <-
-  data %>% 
-  mutate(run = ordered(run)) %>% 
-  filter(N > 0) %>% 
-  mutate(X = as.numeric(as.character(X))) %>% 
-  group_by(scenario, grid_X, grid_Y, mu, run, time, species, trophic_level) %>%
-  summarise(X_mean = mean(rep(X,N)),
-            X_spread = sqrt(var(rep(X,N)))) %>% 
-  ungroup() %>% 
-  group_by(scenario, grid_X, grid_Y, mu, run, species, trophic_level) %>%
-  mutate(X_shift = abs(X_mean - X_mean[time == 0])) %>% 
-  ungroup() %>% 
-  group_by(scenario, grid_X, grid_Y, mu, run, time, trophic_level) %>%
-  summarise(X_spread = mean(X_spread),
-            X_shift = mean(X_shift)) %>% 
-  ungroup()
-
-data_shift_mean <-
-  data_shift %>% 
-  group_by(scenario, grid_X, grid_Y, mu, time, trophic_level) %>% 
-  summarise(across(c(X_spread, X_shift), mean)) %>% 
-  ungroup()
-
-```
-
-
-```{r load calculations}
-
-load("data_tl1_X5_Y5_asex.RData")
-load("data_tl1_X5_Y5_sex.RData")
 
 ```
 
@@ -423,19 +274,21 @@ for(r in levels(data$run)) {
 ```{r figuren div}
 
 # for(st in unique(data_div_asex$e_step_local)) {
-for(mg in unique(data_div_asex$m)) {
+for(mg in unique(data_div$m)) {
   p <-
-    data_div_asex %>% 
-    mutate(mu = ordered(mu),
-           e_step_local = ordered(e_step_local)) %>% 
+    data_div %>% 
+    mutate(mu = ordered(mu, levels = c(1e-4, 0)),
+           e_step_local = ordered(e_step_local),
+           rep_type = ordered(rep_type)) %>% 
     filter(#time > 0,
            e_step_local == 0.001,
            m == mg) %>% 
     ggplot(aes(time, alpha_div_N_mean)) +
-    geom_line(aes(color = mu, linetype = e_step_local), size = 1) +
+    geom_line(aes(color = rep_type, linetype = mu), size = 1) +
     geom_ribbon(aes(ymin = alpha_div_N_mean - 2*sqrt(alpha_div_N_var), 
                     ymax = alpha_div_N_mean + 2*sqrt(alpha_div_N_var), 
-                    fill = mu),
+                    group = rep_type:mu,
+                    fill = rep_type),
                 alpha = 0.2) +
     scale_color_brewer(palette = "Dark2") +
     scale_fill_brewer(palette = "Dark2") +
@@ -447,19 +300,21 @@ for(mg in unique(data_div_asex$m)) {
 # }
 
 
-for(mg in unique(data_div_asex$m)) {
+for(mg in unique(data_div$m)) {
   p <-
-    data_div_asex %>% 
-    mutate(mu = ordered(mu),
-           e_step_local = ordered(e_step_local)) %>% 
+    data_div %>% 
+    mutate(mu = ordered(mu, levels = c(1e-4, 0)),
+           e_step_local = ordered(e_step_local),
+           rep_type = ordered(rep_type)) %>% 
     filter(time > 0,
            e_step_local == 0.001,
            m == mg) %>% 
     ggplot(aes(time, gamma_div_N_mean)) +
-    geom_line(aes(color = mu, linetype = e_step_local), size = 1) +
+    geom_line(aes(color = rep_type, linetype = mu), size = 1) +
     geom_ribbon(aes(ymin = gamma_div_N_mean - 2*sqrt(gamma_div_N_var), 
                     ymax = gamma_div_N_mean + 2*sqrt(gamma_div_N_var), 
-                    fill = mu),
+                    group = rep_type:mu,
+                    fill = rep_type),
                 alpha = 0.2) +
     scale_color_brewer(palette = "Dark2") +
     scale_fill_brewer(palette = "Dark2") +
@@ -470,19 +325,21 @@ for(mg in unique(data_div_asex$m)) {
 }
 
 
-for(mg in unique(data_div_asex$m)) {
+for(mg in unique(data_div$m)) {
   p <-
-    data_div_asex %>% 
-    mutate(mu = ordered(mu),
-           e_step_local = ordered(e_step_local)) %>% 
+    data_div %>% 
+    mutate(mu = ordered(mu, levels = c(1e-4, 0)),
+           e_step_local = ordered(e_step_local),
+           rep_type = ordered(rep_type)) %>% 
     filter(time > 0,
            e_step_local == 0.001,
            m == mg) %>% 
     ggplot(aes(time, beta_div_N_mean)) +
-    geom_line(aes(color = mu, linetype = e_step_local), size = 1) +
+    geom_line(aes(color = rep_type, linetype = mu), size = 1) +
     geom_ribbon(aes(ymin = beta_div_N_mean - 2*sqrt(beta_div_N_var), 
                     ymax = beta_div_N_mean + 2*sqrt(beta_div_N_var), 
-                    fill = mu),
+                    group = rep_type:mu,
+                    fill = rep_type),
                 alpha = 0.2) +
     scale_color_brewer(palette = "Dark2") +
     scale_fill_brewer(palette = "Dark2") +
@@ -701,6 +558,83 @@ for(mg in unique(data_div_asex$m)) {
   print(p)
 }
 
+
+```
+
+
+```{r aantal soorten}
+
+for(rep in unique(data_div$rep_type)) {
+  p <-
+    data_div %>% 
+    mutate(mu = ordered(mu),
+           e_step_local = ordered(e_step_local),
+           nbr_species = ordered(nbr_species)) %>% 
+    filter(#time > 0,
+           e_step_local == 0.001,
+           rep_type == rep) %>% 
+    ggplot(aes(time, alpha_div_N_mean)) +
+    geom_line(aes(color = nbr_species, linetype = mu), size = 1) +
+    geom_ribbon(aes(ymin = alpha_div_N_mean - 2*sqrt(alpha_div_N_var), 
+                    ymax = alpha_div_N_mean + 2*sqrt(alpha_div_N_var), 
+                    group = nbr_species:mu,
+                    fill = nbr_species),
+                alpha = 0.2) +
+    scale_color_brewer(palette = "Dark2") +
+    scale_fill_brewer(palette = "Dark2") +
+    ggtitle(str_c("rep = ", rep)) +
+    facet_grid(CC ~ time_CC, labeller = "label_both") +
+    theme_bw()
+  print(p)
+}
+
+for(rep in unique(data_div$rep_type)) {
+  p <-
+    data_div %>% 
+    mutate(mu = ordered(mu),
+           e_step_local = ordered(e_step_local),
+           nbr_species = ordered(nbr_species)) %>% 
+    filter(#time > 0,
+           e_step_local == 0.001,
+           rep_type == rep) %>% 
+    ggplot(aes(time, gamma_div_N_mean)) +
+    geom_line(aes(color = nbr_species, linetype = mu), size = 1) +
+    geom_ribbon(aes(ymin = gamma_div_N_mean - 2*sqrt(gamma_div_N_var), 
+                    ymax = gamma_div_N_mean + 2*sqrt(gamma_div_N_var), 
+                    group = nbr_species:mu,
+                    fill = nbr_species),
+                alpha = 0.2) +
+    scale_color_brewer(palette = "Dark2") +
+    scale_fill_brewer(palette = "Dark2") +
+    ggtitle(str_c("rep = ", rep)) +
+    facet_grid(CC ~ time_CC, labeller = "label_both") +
+    theme_bw()
+  print(p)
+}
+
+for(rep in unique(data_div$rep_type)) {
+  p <-
+    data_div %>% 
+    mutate(mu = ordered(mu),
+           e_step_local = ordered(e_step_local),
+           nbr_species = ordered(nbr_species)) %>% 
+    filter(#time > 0,
+           e_step_local == 0.001,
+           rep_type == rep) %>% 
+    ggplot(aes(time, beta_div_N_mean)) +
+    geom_line(aes(color = nbr_species, linetype = mu), size = 1) +
+    geom_ribbon(aes(ymin = beta_div_N_mean - 2*sqrt(beta_div_N_var), 
+                    ymax = beta_div_N_mean + 2*sqrt(beta_div_N_var), 
+                    group = nbr_species:mu,
+                    fill = nbr_species),
+                alpha = 0.2) +
+    scale_color_brewer(palette = "Dark2") +
+    scale_fill_brewer(palette = "Dark2") +
+    ggtitle(str_c("rep = ", rep)) +
+    facet_grid(CC ~ time_CC, labeller = "label_both") +
+    theme_bw()
+  print(p)
+}
 
 ```
 
