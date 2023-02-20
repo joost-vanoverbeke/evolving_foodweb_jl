@@ -36,6 +36,7 @@ in_rate = in_rate*scale_uptake
 uptake_pars[1] /= scale_uptake
 
 tl_species = [(s - 1) % trophic_levels + 1 for s = 1:species]
+species_per_tl = species/trophic_levels
 match_resource = [tl_species[s] == 1 ? 1 : 0 for s in 1:species]
 # match_shuffle = round.(rand(convert(Int, species/trophic_levels)), digits=2)
 match_shuffle = [0.11,0.3,0.42,0.57,0.87]
@@ -69,8 +70,8 @@ for tl in 1:trophic_levels
 end
 
 N_s = zeros(Int64, species)
-N_s[[1,3,5,7,9]] .= [2000,2000,2000,2000,2000]
-N_s[[2,4,6,8,10]] .= [200,200,200,200,200]
+N_s[[1,3,5,7,9]] .= [1000,2500,1500,1300,2100]
+N_s[[2,4,6,8,10]] .= [150,180,200,170,210]
 # N_s[[1,4,7]] .= [2000,3000,1000]
 # N_s[[2,5,8]] .= [100,200,300]
 # N_s[[3,6,9]] .= [30,10,20]
@@ -112,26 +113,81 @@ resource_gain = in_rate
 resource_loss = out_rate*resource + resource_uptake
 
 
+s = 1
+# total_uptake = zeros(Float64, species)
+dir = :UP
+N_s[s] += 1
+N_tl[tl_species[s]] += 1
 
-for tl in 1:trophic_levels
-    if tl == 1
-        upt = uptake_tl[tl, 1]*resource^uptake_pars[3]
+if s == 0
+    resource_uptake = 0.
+    tl = 1
+    s_comp = (1:species)[tl_species .== tl]
+    upt = uptake_tl[tl, 1] * resource^uptake_pars[3]
+    upt = upt/(1. + upt*uptake_tl[tl, 2])
+    for s2 in s_comp 
+        uptake[s2] = upt
+        gain_s[s2] = uptake[s2] * conversion_tl[tl]
+        total_uptake[s2] = uptake[s2] .* N_s[s2]
+        resource_uptake += total_uptake[s2]
+    end
+    resource_loss = out_rate*resource + resource_uptake
+elseif s > 0
+    tl_comp = tl_species[s]
+    tl_prey = tl_comp - 1
+    tl_pred = tl_comp + 1
+    s_prey = (1:species)[tl_species .== tl_prey]
+    s_comp = (1:species)[tl_species .== tl_comp]
+    s_pred = (1:species)[tl_species .== tl_pred]
+    N_ratio[s_comp] .= N_s[s_comp]./(N_tl[tl_comp]/species_per_tl)
+    tl_ratio = species_per_tl/N_tl[tl_comp]
+    if tl_comp == 1
+        if dir == :UP
+            resource_loss += uptake[s]
+            N_prey += match_matr[:, s]
+        else
+            resource_loss -= uptake[s]
+            N_prey -= match_matr[:, s]
+        end
+        for s2 in s_pred 
+            upt = uptake_tl[tl_pred, 1] * N_prey[s2]^uptake_pars[3]
+            uptake[s2] = upt/(1. + upt*uptake_tl[tl_pred, 2])
+            gain_s[s2] = uptake[s2] * conversion_tl[tl_pred]
+            total_uptake[s2] = uptake[s2] * N_s[s2] * tl_ratio
+        end
+        match_loss = total_uptake[s_pred] .* match_rel[s_pred, s_comp]
+        prey_loss = vec(sum(match_loss; dims = 1))
+        loss_s[s_comp] .= prey_loss .* N_ratio[s_comp] ./ N_s[s_comp]
+        loss_s[s_comp] .= prey_loss .* tl_ratio
+
+
+        
+    elseif tl_comp > 1 && tl_comp < trophic_levels
+        if dir == :UP
+            N_prey += match_matr[:, s]
+        else
+            N_prey -= match_matr[:, s]
+        end
+        for s2 in s_pred 
+            upt = uptake_tl[tl_pred, 1] * N_prey[s2]^uptake_pars[3]
+            uptake[s2] = upt/(1. + upt*uptake_tl[tl_pred, 2])
+            gain_s[s2] = uptake[s2] * conversion_tl[tl_pred]
+            total_uptake[s2] = uptake[s2] .* N_s[s2]
+        end
+        match_loss_old = total_uptake[s] .* match_rel[s, s_prey] .* N_ratio[s_prey]
+        @. loss_s[s_prey] -= match_loss_old / N_s[s_prey]
+        total_uptake[s] = uptake[s] .* N_s[s]
+        match_loss = total_uptake[s] .* match_rel[s, s_prey] .* N_ratio[s_prey]
+        @. loss_s[s_prey] += match_loss / N_s[s_prey]
+        match_loss = total_uptake[s_pred] .* match_rel[s_pred, s_comp]
+        prey_loss = vec(sum(match_loss; dims = 1)) .* N_ratio[s_comp]
+        @. loss_s[s_comp] = prey_loss / N_s[s_comp]
     else
-        upt = uptake_tl[tl, 1]*N_tl[tl-1]^uptake_pars[3]
-    end
-    total_uptake_tl[tl] = upt/(1. + upt*uptake_tl[tl, 2])*N_tl[tl]
-end
-resource_gain_tl = in_rate
-resource_loss_tl = out_rate*resource + total_uptake_tl[1]
-for tl in 1:trophic_levels
-    gain_tl[tl] = total_uptake_tl[tl]/N_tl[tl] * conversion_tl[tl]
-    if tl < trophic_levels
-        loss_tl[tl] = total_uptake_tl[tl+1]/N_tl[tl]
+        loss_s[s] = 0.
+        match_loss_old = total_uptake[s] .* match_rel[s, s_prey] .* N_ratio[s_prey]
+        @. loss_s[s_prey] -= match_loss_old / N_s[s_prey]
+        total_uptake[s] = uptake[s] .* N_s[s]
+        match_loss = total_uptake[s] .* match_rel[s, s_prey] .* N_ratio[s_prey]
+        @. loss_s[s_prey] += match_loss / N_s[s_prey]
     end
 end
-
-
-tor = [i > j ? i : j for i in 1:10, j in 1:10]
-tor = [abs(i - j) for i in 0:10, j in 0:10]
-tor2 = min.(tor, 10 .- tor)
-

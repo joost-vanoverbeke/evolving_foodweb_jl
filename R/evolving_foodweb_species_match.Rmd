@@ -212,7 +212,8 @@ data_div <-
   # group_by(mu, time) %>% 
   summarise(across(.fns = ~mean(.))) %>% 
   ungroup() %>% 
-  mutate(mu = ordered(mu))
+  mutate(mu = ordered(mu),
+         trophic_level = ordered(trophic_level))
 
 ```
 

@@ -26,21 +26,6 @@ library(colorspace)
   str_subset(str_subset(list.files("../results/tl1_X5_Y5/", full.names = TRUE), ".tar.gz", negate = TRUE), "dens2"))
 
 
-for (f in files) {
-  
-  cat("processing file \n", "  ", f, "\n")
-  
-  data <- 
-    read_delim(f, delim = ";") %>% 
-    filter(time%%500==0)
-  data %>% 
-    write_delim(f, delim = ";")
-
-  rm(data)
-  gc()
-}
-
-
 data_div <- NULL
 data_shift <- NULL
 for (f in files) {
@@ -209,6 +194,10 @@ data_div <-
 data_div <-
   data_div_asex %>% 
   bind_rows(data_div_sex)
+
+data_shift <-
+  data_shift_asex %>% 
+  bind_rows(data_shift_sex)
 
 
 ```
@@ -513,19 +502,21 @@ data_div %>%
 
 ```{r figuren shift & spread}
 
-for(mg in unique(data_div_asex$m)) {
+for(mg in unique(data_div$m)) {
   p <-
-    data_shift_asex %>% 
-    mutate(mu = ordered(mu),
-           e_step_local = ordered(e_step_local)) %>% 
+    data_shift %>% 
+    mutate(mu = ordered(mu, levels = c(1e-4, 0)),
+           e_step_local = ordered(e_step_local),
+           rep_type = ordered(rep_type)) %>% 
     filter(#time > 0,
            e_step_local == 0.002,
            m == mg) %>% 
     ggplot(aes(time, X_shift_mean)) +
-    geom_line(aes(color = mu, linetype = e_step_local), size = 1) +
+    geom_line(aes(color = rep_type, linetype = mu), size = 1) +
     geom_ribbon(aes(ymin = X_shift_mean - 2*sqrt(X_shift_var), 
                     ymax = X_shift_mean + 2*sqrt(X_shift_var), 
-                    fill = mu),
+                    group = rep_type:mu,
+                    fill = rep_type),
                 alpha = 0.2) +
     scale_color_brewer(palette = "Dark2") +
     scale_fill_brewer(palette = "Dark2") +
